@@ -27,9 +27,9 @@ namespace rt {
         glVertexArrayAttribFormat(_vao, 1, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 3);
         glVertexArrayAttribBinding(_vao, 1, 0);
         glVertexArrayVertexBuffer(_vao, 0, _vbo, 0, sizeof(float) * 5);
-        std::string v_str = ResourceManager::read_file(ASSETS_DIRECTORY"/shaders/quad/quad.v.glsl");
+        std::string v_str = ResourceManager::read_file(ASSETS_DIRECTORY"/shaders/canvas/quad.v.glsl");
         const char* v_src = v_str.c_str();
-        std::string f_str = ResourceManager::read_file(ASSETS_DIRECTORY"/shaders/quad/quad.f.glsl");
+        std::string f_str = ResourceManager::read_file(ASSETS_DIRECTORY"/shaders/canvas/quad.f.glsl");
         const char* f_src = f_str.c_str();
         _program = glCreateProgram();
         _v_sh = glCreateShader(GL_VERTEX_SHADER);

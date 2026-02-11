@@ -1,7 +1,5 @@
 #pragma once
 
-#include "../math/Math.hpp"
-
 #include "Input.hpp"
 
 namespace rt {
@@ -14,11 +12,11 @@ namespace rt {
     class MouseHandler : public InputHandler
     {
     private:
-        vec2 _pos;
-        vec2 _prev_pos;
-        vec2 _dir;
+        glm::vec2 _pos;
+        glm::vec2 _prev_pos;
+        glm::vec2 _dir;
         float _len; /* distance traveled since last pos check */
-        vec2 _scroll_offset;
+        glm::vec2 _scroll_offset;
         std::map<int, bool> _active_buttons;
 
     public:
@@ -32,11 +30,11 @@ namespace rt {
         void UpdateButtonState(int button, int action, int mods);
         void ResetScrollOffset();
 
-        const vec2 GetCursorPos() const;
-        const vec2 GetCursorDir() const;
+        const glm::vec2 GetCursorPos() const;
+        const glm::vec2 GetCursorDir() const;
         const float GetCursorLen() const;
-        const vec2 GetCursorPrevPos() const;
-        const vec2 GetScrollOffset() const;
+        const glm::vec2 GetCursorPrevPos() const;
+        const glm::vec2 GetScrollOffset() const;
         const bool IsButtonDown(int button) const;
     };
 

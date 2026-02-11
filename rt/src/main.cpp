@@ -9,7 +9,7 @@ int main(void)
 {
     rt::Window win("rt", 800, 800);
     rt::Canvas canvas;
-    rt::ComputeShader c_sh(ASSETS_DIRECTORY"/shaders/basic.c.glsl", 500, 500);
+    rt::ComputeShader c_sh(ASSETS_DIRECTORY"/shaders/rt/basic.c.glsl", 500, 500);
 
     glClearColor(0.9, 0.6, 0.3, 1.0);
     while (!win.IsRunning())

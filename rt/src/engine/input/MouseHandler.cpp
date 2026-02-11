@@ -44,12 +44,12 @@ namespace rt {
             it->second = (action != GLFW_RELEASE);
     }
 
-    const vec2 MouseHandler::GetCursorPos() const
+    const glm::vec2 MouseHandler::GetCursorPos() const
     {
         return (_pos);
     }
 
-    const vec2 MouseHandler::GetCursorDir() const
+    const glm::vec2 MouseHandler::GetCursorDir() const
     {
         return (_dir);
     }
@@ -59,19 +59,19 @@ namespace rt {
         return (_len);
     }
 
-    const vec2 MouseHandler::GetCursorPrevPos() const
+    const glm::vec2 MouseHandler::GetCursorPrevPos() const
     {
         return (_pos - _dir);
     }
 
-    const vec2 MouseHandler::GetScrollOffset() const
+    const glm::vec2 MouseHandler::GetScrollOffset() const
     {
         return (_scroll_offset);
     }
 
     void MouseHandler::ResetScrollOffset()
     {
-        _scroll_offset = vec2(0.0);
+        _scroll_offset = glm::vec2(0.0);
     }
 
     const bool MouseHandler::IsButtonDown(int button) const

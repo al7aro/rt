@@ -28,6 +28,10 @@ else()
     message(STATUS "Building on an unknown system: ${CMAKE_SYSTEM_NAME}")
 endif()
 
+# STB
+add_subdirectory("vendor/stb")
+# GLM
+add_subdirectory("vendor/glm")
 # GLAD
 add_subdirectory("vendor/glad")
 # GLFW
@@ -56,6 +60,8 @@ add_executable(${WORKSPACE_NAME}
 # Libraries
 target_link_libraries(${WORKSPACE_NAME} glfw)
 target_link_libraries(${WORKSPACE_NAME} glad)
+target_link_libraries(${WORKSPACE_NAME} glm)
+target_link_libraries(${WORKSPACE_NAME} stb)
 target_link_libraries(${WORKSPACE_NAME} OpenGL::GL)
 
 # Headers
