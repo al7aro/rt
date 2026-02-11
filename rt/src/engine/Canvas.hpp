@@ -4,15 +4,20 @@
 
 #include <glad/glad.h>
 
-typedef struct s_canvas
-{
-    unsigned int vao, vbo;
-    unsigned int program, v_sh, f_sh, tex;
-    unsigned char* tex_data;
-    unsigned int w;
-    unsigned int h;
-} t_canvas;
+#include "resource_manager/ResourceManager.hpp"
 
-t_canvas canvas_create(unsigned int w, unsigned int h);
-void canvas_render(t_canvas* canvas);
-void canvas_draw_pixel(t_canvas* canvas, int x, int y, char r, char g, char b);
+namespace rt {
+
+    class Canvas
+    {
+    private:
+        unsigned int _vao, _vbo;
+        unsigned int _program, _v_sh, _f_sh;
+    public:
+        Canvas();
+        ~Canvas();
+
+        void Render(unsigned int texture) const;
+    };
+
+}
