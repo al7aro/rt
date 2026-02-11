@@ -1,5 +1,4 @@
-#ifndef CANVAS_H
-# define CANVAS_H
+#pragma once
 
 #include <stdlib.h>
 
@@ -17,5 +16,3 @@ typedef struct s_canvas
 t_canvas canvas_create(unsigned int w, unsigned int h);
 void canvas_render(t_canvas* canvas);
 void canvas_draw_pixel(t_canvas* canvas, int x, int y, char r, char g, char b);
-
-#endif

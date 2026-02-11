@@ -1,4 +1,4 @@
-#include "canvas.h"
+#include "Canvas.hpp"
 
 void canvas_init_texture(t_canvas* canvas)
 {
@@ -60,8 +60,8 @@ t_canvas canvas_create(unsigned int w, unsigned int  h)
     canvas.program = glCreateProgram();
     canvas.v_sh = glCreateShader(GL_VERTEX_SHADER);
     canvas.f_sh = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(canvas.v_sh, 1, &v_src, (void*)0);
-    glShaderSource(canvas.f_sh, 1, &f_src, (void*)0);
+    glShaderSource(canvas.v_sh, 1, &v_src, nullptr);
+    glShaderSource(canvas.f_sh, 1, &f_src, nullptr);
     glCompileShader(canvas.v_sh);
     glCompileShader(canvas.f_sh);
     glAttachShader(canvas.program, canvas.v_sh);

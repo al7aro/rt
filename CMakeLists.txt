@@ -40,7 +40,8 @@ find_package(OpenGL REQUIRED)
 
 # Project Files
 file(GLOB_RECURSE ALL_SOURCES
-    "./${WORKSPACE_NAME}/src/*.c"
+    "./${WORKSPACE_NAME}/src/*.cpp"
+    "./${WORKSPACE_NAME}/src/*.hpp"
     "./${WORKSPACE_NAME}/src/*.h"
 )
 foreach (src ${ALL_SOURCES})
