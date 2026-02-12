@@ -13,60 +13,106 @@ struct s_camera
     float fov;
 };
 /* **************************** */
-/* *********** RAY ************ */
-struct s_ray
-{
-    vec3 pos;
-    vec3 dir;
-};
-/* **************************** */
 /* ********* LIGHTING ********* */
-struct s_point_light
+struct s_light_point
 {
     vec3 pos;
     vec4 color;
 };
 /* **************************** */
 /* ******* PRIMITIVES ********* */
-struct s_sphere
+struct s_shape
 {
+    int type; // SPHERE IS TYPE 0
     vec3 pos;
     float radius;
     vec4 color;
 };
 /* **************************** */
+/* *********** RAY ************ */
+struct s_ray
+{
+    vec3 pos;
+    vec3 dir;
+};
+struct s_hit
+{
+    int hit;
+    vec3 pos;
+    vec3 normal;
+    // s_material material;
+    vec4 color;
+    s_shape shape;
+};
+/* **************************** */
 
 uniform s_camera cam;
+uniform float u_frame_cnt;
 
-const int NUM_OF_SPHERES = 2;
-s_sphere spheres[NUM_OF_SPHERES];
+// A LIST OF !!!VISIBLE!!! SHAPES SHOULD BE SENT FROM CPU
+const int NUM_OF_SHAPES = 2;
+s_shape shapes[NUM_OF_SHAPES];
+const int NUM_OF_POINT_LIGHTS = 1;
+s_light_point lights[NUM_OF_POINT_LIGHTS];
 
-vec4 ray_trace(s_ray ray)
+s_hit intersect_scene(s_ray ray)
 {
+    s_hit hit;
     float offset = 0.2;
     vec4 c = vec4(0.0, 0.0, 0.0, 1.0);
-
+    hit.color = c;
+    hit.hit = 0;
+    hit.pos = vec3(0.0);
+    hit.normal = vec3(0.0);
     for (int i = 0; i < 200; i++)
     {
-        for (int s = 0; s < NUM_OF_SPHERES; s++)
+        for (int s = 0; s < NUM_OF_SHAPES; s++)
         {
-            float l = length(ray.pos - spheres[s].pos);
-            if (l <= spheres[s].radius)
-                return (1.5*spheres[s].color / length(cam.pos - spheres[s].pos));
+            /* IF SHAPE IS SPHERE */
+            if (shapes[s].type == 0)
+            {
+                vec3 normal = ray.pos - shapes[s].pos;
+                if (length(normal) <= shapes[s].radius)
+                {
+                    hit.pos = ray.pos;
+                    hit.normal = normal;
+                    hit.color = shapes[s].color;
+                    hit.hit = 1;
+                    return (hit);
+                }
+            }
         }
         ray.pos += offset * ray.dir;
     }
-    return (c);
+    return (hit);
+}
+
+vec4 ray_trace(s_ray ray)
+{
+    s_hit hit;
+
+    // Find what light is reaching this pixel (no bounces)
+    hit = intersect_scene(ray);
+
+    // adds the contribution of light bouncing on a chain of objects objects
+    // for (int depth = 0; depth < 3; depth++) {
+    //}
+    return (hit.color);
 }
 
 void scene_setup()
 {
-    spheres[0].pos = vec3(0.0, 0.0, -5.0);
-    spheres[0].radius = 1.0;
-    spheres[0].color = vec4(0.3961, 0.8941, 0.3961, 1.0);
-    spheres[1].pos = vec3(2.0, 2.0, -5.0);
-    spheres[1].radius = 0.5;
-    spheres[1].color = vec4(0.9608, 0.2902, 0.2902, 1.0);
+    shapes[0].type = 0;
+    shapes[0].pos = vec3(0.0, 0.0, -5.0);
+    shapes[0].radius = 1.0;
+    shapes[0].color = vec4(0.3961, 0.8941, 0.3961, 1.0);
+    shapes[1].type = 0;
+    shapes[1].pos = vec3(2.0, 2.0, -5.0);
+    shapes[1].radius = 0.5;
+    shapes[1].color = vec4(0.9608, 0.2902, 0.2902, 1.0);
+
+    lights[0].pos = vec3(5.0, 5.0, 5.0);
+    lights[0].color = vec4(1.0, 1.0, 1.0, 1.0);
 }
 
 void main()
@@ -94,5 +140,8 @@ void main()
     color = ray_trace(ray);
 
 /* COMPUTE COLOR */
+    vec4 prev_color = imageLoad(img_output, texel_coord);
+    if (int(u_frame_cnt) > 1)
+        color += prev_color;
     imageStore(img_output, texel_coord, color);
 }

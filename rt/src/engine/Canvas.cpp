@@ -53,4 +53,10 @@ namespace rt {
         glDrawArrays(GL_TRIANGLES, 0, 6);
     }
 
+    void Canvas::SetUniform(const std::string& name, float v) const
+    {
+        unsigned int loc = glGetUniformLocation(_program, name.c_str());
+        glProgramUniform1f(_program, loc, v);
+    }
+
 }

@@ -3,7 +3,7 @@
 namespace rt {
 
     Window::Window(const std::string& title, int width, int height)
-        : _win(nullptr), _title(title), _title_suffix(), _width(width), _height(height)
+        : _win(nullptr), _title(title), _title_suffix(), _width(width), _height(height), _frame_cnt(1)
     {
         if (!glfwInit())
             return ;
@@ -60,9 +60,10 @@ namespace rt {
         for (std::shared_ptr<MouseHandler> h : _mouse_handlers)
             h->Update();
     }
-    void Window::SwapBuffers() const
+    void Window::SwapBuffers()
     {
         glfwSwapBuffers(_win);
+        _frame_cnt++;
     }
 
     void Window::Destroy() const
@@ -79,6 +80,16 @@ namespace rt {
     {
         _title_suffix = suffix;
         glfwSetWindowTitle(_win, (_title + _title_suffix).c_str());
+    }
+
+    void Window::ResetFrameCount()
+    {
+        _frame_cnt = 1;
+    }
+
+    long long unsigned int Window::GetFrameCount() const
+    {
+        return (_frame_cnt);
     }
 
     /* INPUT */

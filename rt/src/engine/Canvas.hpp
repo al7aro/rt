@@ -18,6 +18,7 @@ namespace rt {
         ~Canvas();
 
         void Render(unsigned int texture) const;
+        void SetUniform(const std::string& name, float v) const;
     };
 
 }

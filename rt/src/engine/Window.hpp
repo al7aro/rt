@@ -20,6 +20,7 @@ namespace rt {
         GLFWwindow* _win;
         std::string _title, _title_suffix;
         int _width, _height;
+        long long unsigned int _frame_cnt;
 
         std::vector<std::shared_ptr<MouseHandler> > _mouse_handlers;
         std::vector<std::shared_ptr<KeyHandler> > _key_handlers;
@@ -29,13 +30,15 @@ namespace rt {
 
         bool IsRunning() const;
         void PollEvents() const;
-        void SwapBuffers() const;
+        void SwapBuffers();
 
         void SetTitleSuffix(const std::string& suffix);
 
         void SetCursorMode(unsigned int value);
         bool IsValid() const;
         void SetClearcolor(float r, float g, float b, float a) const;
+        long long unsigned int GetFrameCount() const;
+        void ResetFrameCount();
 
         /* Does not terminate GLFW */
         void Destroy() const;

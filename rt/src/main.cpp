@@ -7,7 +7,7 @@
 #include "engine/rt_engine.hpp"
 #include "camera/Camera.hpp"
 
-void update_camera(rt::Window& win, rt::Camera& cam, rt::KeyHandler& wasd, rt::MouseHandler& mouse, float delta_time);
+bool update_camera(rt::Window& win, rt::Camera& cam, rt::KeyHandler& wasd, rt::MouseHandler& mouse, float delta_time);
 
 int main(void)
 {
@@ -28,7 +28,8 @@ int main(void)
     {
         timer.Restart();
         win.PollEvents();
-        update_camera(win, camera, *wasd, *mouse, delta_time);
+        if (update_camera(win, camera, *wasd, *mouse, delta_time))
+            win.ResetFrameCount();
 
         glClear(GL_COLOR_BUFFER_BIT);
         c_sh.Bind();
@@ -36,7 +37,10 @@ int main(void)
         c_sh.SetUniform("cam.aspect", camera.GetAspect());
         c_sh.SetUniform("cam.fov", camera.GetFOV());
         c_sh.SetUniform("cam.rot", camera.GetRotationMatrix());
+        c_sh.SetUniform("u_frame_cnt", win.GetFrameCount());
         c_sh.WaitFinished();
+
+        canvas.SetUniform("u_frame_cnt", win.GetFrameCount());
         canvas.Render(c_sh.GetTextureId());
 
         win.SwapBuffers();
@@ -50,30 +54,49 @@ int main(void)
     return (0);
 }
 
-void update_camera(rt::Window& win, rt::Camera& cam, rt::KeyHandler& wasd, rt::MouseHandler& mouse, float delta_time)
+bool update_camera(rt::Window& win, rt::Camera& cam, rt::KeyHandler& wasd, rt::MouseHandler& mouse, float delta_time)
 {
-/* ****************** BASIC TEST MOVEMENT ****************** */
     float cam_speed = 7.5 + mouse.GetScrollOffset().y / 10.0;
     glm::vec2 cursor_dir = mouse.GetCursorDir();
+    bool updated = false;
     if (wasd.IsKeyDown(GLFW_KEY_W))
+    {
         cam.Move(glm::vec3(0.0, 0.0, -1.0) * delta_time * cam_speed);
+        updated = true;
+    }
     if (wasd.IsKeyDown(GLFW_KEY_S))
+    {
         cam.Move(glm::vec3(0.0, 0.0, 1.0) * delta_time * cam_speed);
+        updated = true;
+    }
     if (wasd.IsKeyDown(GLFW_KEY_A))
+    {
         cam.Move(glm::vec3(-1.0, 0.0, 0.0) * delta_time * cam_speed);
+        updated = true;
+    }
     if (wasd.IsKeyDown(GLFW_KEY_D))
+    {
         cam.Move(glm::vec3(1.0, 0.0, 0.0) * delta_time * cam_speed);
+        updated = true;
+    }
     if (wasd.IsKeyDown(GLFW_KEY_LEFT_SHIFT))
+    {
         cam.Move(glm::vec3(0.0, -1.0, 0.0) * delta_time * cam_speed);
+        updated = true;
+    }
     if (wasd.IsKeyDown(GLFW_KEY_SPACE))
+    {
         cam.Move(glm::vec3(0.0, 1.0, 0.0) * delta_time * cam_speed);
+        updated = true;
+    }
     if (mouse.IsButtonDown(GLFW_MOUSE_BUTTON_LEFT))
     {
         win.SetCursorMode(GLFW_CURSOR_DISABLED);
         cam.Yaw(-cursor_dir.x * 0.005);
         cam.Pitch(-cursor_dir.y * 0.005);
+        updated = true;
     }
     else
         win.SetCursorMode(GLFW_CURSOR_NORMAL);
-/* ********************************************************* */
+    return (updated);
 }
