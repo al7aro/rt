@@ -1,11 +1,13 @@
 #include <stdio.h>
 #include <memory>
+#include <random>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
 #include "engine/rt_engine.hpp"
 #include "camera/Camera.hpp"
+#include "compute_shader/ComputeShader.hpp"
 
 bool update_camera(rt::Window& win, rt::Camera& cam, rt::KeyHandler& wasd, rt::MouseHandler& mouse, float delta_time);
 
@@ -16,17 +18,26 @@ int main(void)
     auto mouse = std::make_shared<rt::MouseHandler>(std::vector<int>({GLFW_MOUSE_BUTTON_RIGHT, GLFW_MOUSE_BUTTON_LEFT}));
     win.AddListenTo(wasd);
     win.AddListenTo(mouse);
-    rt::Timer timer, aux_timer;
+    rt::Timer timer, delta_timer, aux_timer;
     float delta_time = 0.0;
 
     rt::Canvas canvas;
-    rt::ComputeShader c_sh(ASSETS_DIRECTORY"/shaders/rt/basic.c.glsl", 500, 500);
+    rt::ComputeShader c_sh(ASSETS_DIRECTORY"/shaders/rt/basic.c.glsl", 800, 800);
     rt::Camera camera;
+
+    rt::Scene scene;
+    scene.AddSphere(glm::vec3(0.0, 0.0, -3.0), 1.0, glm::vec4(0.3961, 0.8941, 0.3961, 1.0), 0);
+    // scene.AddSphere(glm::vec3(1.25, 1.25, -3.0), 0.5, glm::vec4(1.0, 0.3843, 0.5882, 1.0), 0);
+    // scene.AddSphere(glm::vec3(0.0, 2.0, 0.0), 1.0, glm::vec4(10.0), 1);
+    c_sh.SetScene(scene);
+
+    /* RANDOM */
+    srand(static_cast<unsigned int>(28022021));
 
     glClearColor(0.9, 0.6, 0.3, 1.0);
     while (!win.IsRunning())
     {
-        timer.Restart();
+        delta_timer.Restart();
         win.PollEvents();
         if (update_camera(win, camera, *wasd, *mouse, delta_time))
             win.ResetFrameCount();
@@ -37,14 +48,16 @@ int main(void)
         c_sh.SetUniform("cam.aspect", camera.GetAspect());
         c_sh.SetUniform("cam.fov", camera.GetFOV());
         c_sh.SetUniform("cam.rot", camera.GetRotationMatrix());
-        c_sh.SetUniform("u_frame_cnt", win.GetFrameCount());
+        c_sh.SetUniform("u_frame_cnt", (float)win.GetFrameCount());
+        c_sh.SetUniform("u_time", (float)timer.EllapsedSeconds());
+        c_sh.SetUniform("u_rand", static_cast<float>(rand())/static_cast<float>(RAND_MAX));
         c_sh.WaitFinished();
 
         canvas.SetUniform("u_frame_cnt", win.GetFrameCount());
         canvas.Render(c_sh.GetTextureId());
 
         win.SwapBuffers();
-        delta_time = timer.EllapsedSeconds();
+        delta_time = delta_timer.EllapsedSeconds();
         if (aux_timer.EllapsedSeconds() > 0.5)
         {
             win.SetTitleSuffix(" [" + std::to_string(delta_time) + "s | " + std::to_string(1.0/delta_time) + "fps]");
@@ -94,7 +107,8 @@ bool update_camera(rt::Window& win, rt::Camera& cam, rt::KeyHandler& wasd, rt::M
         win.SetCursorMode(GLFW_CURSOR_DISABLED);
         cam.Yaw(-cursor_dir.x * 0.005);
         cam.Pitch(-cursor_dir.y * 0.005);
-        updated = true;
+        if (glm::length(cursor_dir) > 0.0)
+            updated = true;
     }
     else
         win.SetCursorMode(GLFW_CURSOR_NORMAL);

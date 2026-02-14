@@ -9,4 +9,5 @@ uniform float u_frame_cnt;
 void main()
 {
         frag_color = texture(u_texture, v_tex_coord) / u_frame_cnt;
+        // frag_color = texture(u_texture, v_tex_coord);
 }

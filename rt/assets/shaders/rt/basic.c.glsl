@@ -13,20 +13,34 @@ struct s_camera
     float fov;
 };
 /* **************************** */
-/* ********* LIGHTING ********* */
-struct s_light_point
+/* ********* MATERIAL ********* */
+struct s_material
 {
-    vec3 pos;
     vec4 color;
+    int emissive;
 };
 /* **************************** */
 /* ******* PRIMITIVES ********* */
+// ALL PRIMITIVES HAS COLOR (MATERIAL) AND POS
+const int SHAPE_POINT = 0;
+const int SHAPE_SPHERE = 1;
+const int SHAPE_PLANE = 2;
+// SPHERE : type 0
+//      - float (radius) -> f0
+// PLANE : type 1
+//      - vec3 (v1)
+//      - vec3 (v2)
+//      - vec3 (v3)
 struct s_shape
 {
-    int type; // SPHERE IS TYPE 0
+    int type;
     vec3 pos;
-    float radius;
-    vec4 color;
+
+    int enabled;
+    s_material mat;
+
+    float f0, f1, f2;
+    vec3 v0, v1, v2;
 };
 /* **************************** */
 /* *********** RAY ************ */
@@ -38,81 +52,157 @@ struct s_ray
 struct s_hit
 {
     int hit;
+    float dist;
     vec3 pos;
     vec3 normal;
-    // s_material material;
-    vec4 color;
-    s_shape shape;
+
+    s_material mat;
+    int enabled;
 };
 /* **************************** */
 
-uniform s_camera cam;
 uniform float u_frame_cnt;
+uniform float u_time;
+uniform float u_rand;
+uniform s_camera cam;
+// const int MAX_NUM_OF_SHAPES = 3;
+// uniform int u_shape_cnt;
+// uniform s_shape u_shapes[MAX_NUM_OF_SHAPES];
 
-// A LIST OF !!!VISIBLE!!! SHAPES SHOULD BE SENT FROM CPU
-const int NUM_OF_SHAPES = 2;
-s_shape shapes[NUM_OF_SHAPES];
-const int NUM_OF_POINT_LIGHTS = 1;
-s_light_point lights[NUM_OF_POINT_LIGHTS];
+// // A LIST OF !!!VISIBLE!!! SHAPES SHOULD BE SENT FROM CPU
+const vec4 AMBIENT_LIGHT_COLOR = vec4(0.1, 0.1, 0.1, 1.0);
+const int RAY_MAX_BOUNCES = 100;
+const int RAY_NO_HIT = -1;
+const int NUM_OF_SHAPES = 3;
+s_shape u_shapes[NUM_OF_SHAPES];
 
-s_hit intersect_scene(s_ray ray)
+// This gives the same number per frame so seed should change per different value
+float random(float seed)
+{
+    return fract(sin((seed + u_rand) * 12.9898) * 43758.5453123);
+}
+
+vec3 random_vector(float seed)
+{
+    float z = random(seed) * 2.0 - 1.0;          // Range -1 to 1
+    float a = random(seed + 0.123) * 6.283185;   // Range 0 to 2*PI
+    float r = sqrt(1.0 - z * z);
+    return vec3(r * cos(a), r * sin(a), z);
+}
+
+s_hit intersect_sphere(s_ray ray, int s)
 {
     s_hit hit;
-    float offset = 0.2;
-    vec4 c = vec4(0.0, 0.0, 0.0, 1.0);
-    hit.color = c;
-    hit.hit = 0;
-    hit.pos = vec3(0.0);
-    hit.normal = vec3(0.0);
-    for (int i = 0; i < 200; i++)
+    hit.hit = RAY_NO_HIT;
+
+    vec3 normal = ray.pos - u_shapes[s].pos;
+    float b = dot(normal, ray.dir);
+    float c = dot(normal, normal) - (u_shapes[s].f0 * u_shapes[s].f0);
+    float discriminant = b * b - c;
+
+    if (discriminant > 0.0)
     {
-        for (int s = 0; s < NUM_OF_SHAPES; s++)
+        // Calculate the distance to the closest hit point
+        float t = -b - sqrt(discriminant);
+        
+        // If t is negative, the hit is behind the camera, so we ignore it
+        if (t > 0.001) 
         {
-            /* IF SHAPE IS SPHERE */
-            if (shapes[s].type == 0)
-            {
-                vec3 normal = ray.pos - shapes[s].pos;
-                if (length(normal) <= shapes[s].radius)
-                {
-                    hit.pos = ray.pos;
-                    hit.normal = normal;
-                    hit.color = shapes[s].color;
-                    hit.hit = 1;
-                    return (hit);
-                }
-            }
+            hit.dist = t;
+            hit.pos = ray.pos + t * ray.dir;
+            hit.normal = normalize(hit.pos - u_shapes[s].pos);
+            hit.mat = u_shapes[s].mat;
+            hit.hit = s;
+            hit.enabled = u_shapes[s].enabled;
         }
-        ray.pos += offset * ray.dir;
     }
-    return (hit);
+    return hit;
+}
+
+s_hit intersect_scene(s_ray ray, int ignore, int ignore_disabled_objects)
+{
+    s_hit closest_hit;
+    closest_hit.dist = 9999;
+    closest_hit.hit = RAY_NO_HIT;
+    closest_hit.enabled = 0;
+    closest_hit.mat.color = AMBIENT_LIGHT_COLOR;
+
+    for (int s = 0; s < NUM_OF_SHAPES; s++)
+    {
+        if (s == ignore)
+            continue;
+        s_hit current_hit;
+        if (u_shapes[s].type == SHAPE_SPHERE)
+            current_hit = intersect_sphere(ray, s);
+        // Check if this hit is closer than the previous one
+        if (current_hit.enabled == 0 && ignore_disabled_objects == 1)
+            continue;
+        if (current_hit.hit != RAY_NO_HIT && current_hit.dist < closest_hit.dist)
+            closest_hit = current_hit;
+    }
+    return closest_hit;
+}
+
+vec3 random_bounce(s_material mat, float seed)
+{
+    return (random_vector(seed));
 }
 
 vec4 ray_trace(s_ray ray)
 {
     s_hit hit;
+    float seed = dot(ray.pos.xy, vec2(12.9898, 78.233)) + u_time;
+    vec4 c = vec4(0.0);
+    vec4 m = vec4(1.0);
 
-    // Find what light is reaching this pixel (no bounces)
-    hit = intersect_scene(ray);
+    hit = intersect_scene(ray, RAY_NO_HIT, 1);
+    if (hit.hit == RAY_NO_HIT) return (AMBIENT_LIGHT_COLOR);
+    if (hit.enabled == 0) return (AMBIENT_LIGHT_COLOR);
+    if (hit.mat.emissive == 1) return (hit.mat.color);
+    m *= hit.mat.color;
+    for (int b = 0; b < RAY_MAX_BOUNCES; b++)
+    {
+        // RANDOM BOUNCE DIRECTION
+        ray.dir = normalize(random_bounce(hit.mat, seed + b));
+        // ray.dir = normalize(u_shapes[2].pos - hit.pos);
+        if (dot(hit.normal, ray.dir) < 0) ray.dir = -ray.dir;
+        ray.pos = hit.pos;
 
-    // adds the contribution of light bouncing on a chain of objects objects
-    // for (int depth = 0; depth < 3; depth++) {
-    //}
-    return (hit.color);
+        // INTERSECT NEW RAY WITH THE SCENE
+        s_hit new_hit = intersect_scene(ray, hit.hit, 0);
+
+        // COMPUTE LIGHT
+        float diffuse = max(dot(hit.normal, ray.dir), 0.0); // IF LIGHT IS NOT POINT ADDITIONAL TERM IS NEEDED
+        m *= new_hit.mat.color * diffuse;
+
+        // CHECK IF RAY IS GOING TO SKY OR LIGHT
+        if (new_hit.hit == RAY_NO_HIT || new_hit.mat.emissive != 0)
+            break;
+        hit = new_hit;
+    }
+    return (m);
 }
 
 void scene_setup()
 {
-    shapes[0].type = 0;
-    shapes[0].pos = vec3(0.0, 0.0, -5.0);
-    shapes[0].radius = 1.0;
-    shapes[0].color = vec4(0.3961, 0.8941, 0.3961, 1.0);
-    shapes[1].type = 0;
-    shapes[1].pos = vec3(2.0, 2.0, -5.0);
-    shapes[1].radius = 0.5;
-    shapes[1].color = vec4(0.9608, 0.2902, 0.2902, 1.0);
-
-    lights[0].pos = vec3(5.0, 5.0, 5.0);
-    lights[0].color = vec4(1.0, 1.0, 1.0, 1.0);
+    u_shapes[0].type = SHAPE_SPHERE;
+    u_shapes[0].pos = vec3(0.0, 0.0, -3.0);
+    u_shapes[0].f0 = 1.0;
+    u_shapes[0].mat.color = vec4(0.3961, 0.8941, 0.3961, 1.0);
+    u_shapes[0].mat.emissive = 0;
+    u_shapes[0].enabled = 1;
+    u_shapes[1].type = SHAPE_SPHERE;
+    u_shapes[1].pos = vec3(1.25, 1.25, -3.0);
+    u_shapes[1].f0 = 0.5;
+    u_shapes[1].mat.color = vec4(1.0, 0.3843, 0.5882, 1.0);
+    u_shapes[1].mat.emissive = 0;
+    u_shapes[1].enabled = 1;
+    u_shapes[2].type = SHAPE_SPHERE;
+    u_shapes[2].pos = vec3(0.0, 2.0, 0.0);
+    u_shapes[2].f0 = 1.0;
+    u_shapes[2].mat.color = 10.0*vec4(1.0);
+    u_shapes[2].mat.emissive = 1;
+    u_shapes[2].enabled = 0;
 }
 
 void main()

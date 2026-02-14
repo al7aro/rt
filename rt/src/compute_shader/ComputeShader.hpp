@@ -6,7 +6,8 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glad/glad.h>
 
-#include "resource_manager/ResourceManager.hpp"
+#include "../engine/resource_manager/ResourceManager.hpp"
+#include "../scene/Scene.hpp"
 
 namespace rt {
 
@@ -27,6 +28,8 @@ namespace rt {
         void SetUniform(const std::string& name, const glm::mat3& v) const;
         void SetUniform(const std::string& name, const glm::vec3& v) const;
         void SetUniform(const std::string& name, float v) const;
+        void SetUniform(const std::string& name, int v) const;
+        void SetScene(const Scene& scene) const;
     };
 
 }
