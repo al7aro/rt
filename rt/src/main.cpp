@@ -25,11 +25,39 @@ int main(void)
     rt::ComputeShader c_sh(ASSETS_DIRECTORY"/shaders/rt/basic.c.glsl", 800, 800);
     rt::Camera camera;
 
-    rt::Scene scene;
-    scene.AddSphere(glm::vec3(0.0, 0.0, -3.0), 1.0, glm::vec4(0.3961, 0.8941, 0.3961, 1.0), 0);
-    // scene.AddSphere(glm::vec3(1.25, 1.25, -3.0), 0.5, glm::vec4(1.0, 0.3843, 0.5882, 1.0), 0);
-    // scene.AddSphere(glm::vec3(0.0, 2.0, 0.0), 1.0, glm::vec4(10.0), 1);
-    c_sh.SetScene(scene);
+    float test0[] = {
+        1.0, 0.0, 0.0,      /* pos */
+        0.0,                /* type (padding) */
+        1.0, 0.0, 0.0,      /* v0*/
+        0.0,                /* enabled (padding) */
+        1.0, 0.0, 0.0,      /* v1 */
+        0.0,                /* f0 (padding) */
+        1.0, 0.0, 0.0,      /* v2 */
+        1.0,                /* f1 (padding) */
+        0.0, 0.0, 1.0, 1.0, /* mat.color */
+        1.0,                /* mat.emissive */
+        0.0, 0.0, 0.0,       /* (padding) */
+
+        0.0, 0.0, 0.0, /* padding */
+
+        1.0, 0.0, 0.0,      /* pos */
+        0.0,                /* type (padding) */
+        1.0, 0.0, 0.0,      /* v0*/
+        0.0,                /* enabled (padding) */
+        1.0, 0.0, 0.0,      /* v1 */
+        0.0,                /* f0 (padding) */
+        1.0, 0.0, 0.0,      /* v2 */
+        1.0,                /* f1 (padding) */
+        0.0, 0.0, 1.0, 1.0, /* mat.color */
+        1.0,                /* mat.emissive */
+        0.0, 0.0, 0.0       /* (padding) */
+    };
+    unsigned int ubo[1];
+    glCreateBuffers(1, ubo);
+    glNamedBufferData(ubo[0], 84*2+12, test0, GL_STATIC_DRAW);
+    glBindBufferRange(GL_UNIFORM_BUFFER, 0, ubo[0], 0, 84*2+12);
+    // glBindBufferRange(GL_UNIFORM_BUFFER, 0, ubo[0], 256, 84);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo[0]);
 
     /* RANDOM */
     srand(static_cast<unsigned int>(28022021));

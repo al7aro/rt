@@ -18,6 +18,9 @@ struct s_material
 {
     vec4 color;
     int emissive;
+    float p0;
+    float p1;
+    float p2;
 };
 /* **************************** */
 /* ******* PRIMITIVES ********* */
@@ -33,14 +36,33 @@ const int SHAPE_PLANE = 2;
 //      - vec3 (v3)
 struct s_shape
 {
-    int type;
-    vec3 pos;
+                    // BASE ALIGNMENT           // OFFSET
+    vec3 pos;       //  16                  -   0
+    int type;       //  4 (padding)
+    vec3 v0;        //  16                  -   16
+    int enabled;    //  4 (padding)
+    vec3 v1;        //  16                  -   32
+    float f0;       //  4 (padding)
+    vec3 v2;        //  16                  -   48
+    float f1;       //  4 (padding)
+    s_material mat; //  16                  -   64  (COLOR)
+                    //  4                   -   68  (EMISSIVE)
+                    //  4                   -   72  (PADDING)
+                    //  4                   -   76  (PADDING)
+                    //  4                   -   80  (PADDING)
+                    // TOTAL = 80 + 4 = 84
 
-    int enabled;
-    s_material mat;
+    // vec3 pos;    //  16                  -   96
+};
 
-    float f0, f1, f2;
-    vec3 v0, v1, v2;
+const int MAX_SHAPES = 10;
+layout (std140, binding = 0) uniform u_scene
+{
+    //          BASE ALIGNMENT  OFFSET
+    //  [0]:    16              0
+    //  [2]:    16              112
+    //  [3]:    16              224
+    s_shape u_shapes[MAX_SHAPES];
 };
 /* **************************** */
 /* *********** RAY ************ */
@@ -67,14 +89,14 @@ uniform float u_rand;
 uniform s_camera cam;
 // const int MAX_NUM_OF_SHAPES = 3;
 // uniform int u_shape_cnt;
-// uniform s_shape u_shapes[MAX_NUM_OF_SHAPES];
+// uniform s_shape shapes[MAX_NUM_OF_SHAPES];
 
 // // A LIST OF !!!VISIBLE!!! SHAPES SHOULD BE SENT FROM CPU
 const vec4 AMBIENT_LIGHT_COLOR = vec4(0.1, 0.1, 0.1, 1.0);
 const int RAY_MAX_BOUNCES = 100;
 const int RAY_NO_HIT = -1;
 const int NUM_OF_SHAPES = 3;
-s_shape u_shapes[NUM_OF_SHAPES];
+s_shape shapes[NUM_OF_SHAPES];
 
 // This gives the same number per frame so seed should change per different value
 float random(float seed)
@@ -95,9 +117,9 @@ s_hit intersect_sphere(s_ray ray, int s)
     s_hit hit;
     hit.hit = RAY_NO_HIT;
 
-    vec3 normal = ray.pos - u_shapes[s].pos;
+    vec3 normal = ray.pos - shapes[s].pos;
     float b = dot(normal, ray.dir);
-    float c = dot(normal, normal) - (u_shapes[s].f0 * u_shapes[s].f0);
+    float c = dot(normal, normal) - (shapes[s].f0 * shapes[s].f0);
     float discriminant = b * b - c;
 
     if (discriminant > 0.0)
@@ -110,10 +132,10 @@ s_hit intersect_sphere(s_ray ray, int s)
         {
             hit.dist = t;
             hit.pos = ray.pos + t * ray.dir;
-            hit.normal = normalize(hit.pos - u_shapes[s].pos);
-            hit.mat = u_shapes[s].mat;
+            hit.normal = normalize(hit.pos - shapes[s].pos);
+            hit.mat = shapes[s].mat;
             hit.hit = s;
-            hit.enabled = u_shapes[s].enabled;
+            hit.enabled = shapes[s].enabled;
         }
     }
     return hit;
@@ -132,7 +154,7 @@ s_hit intersect_scene(s_ray ray, int ignore, int ignore_disabled_objects)
         if (s == ignore)
             continue;
         s_hit current_hit;
-        if (u_shapes[s].type == SHAPE_SPHERE)
+        if (shapes[s].type == SHAPE_SPHERE)
             current_hit = intersect_sphere(ray, s);
         // Check if this hit is closer than the previous one
         if (current_hit.enabled == 0 && ignore_disabled_objects == 1)
@@ -164,7 +186,7 @@ vec4 ray_trace(s_ray ray)
     {
         // RANDOM BOUNCE DIRECTION
         ray.dir = normalize(random_bounce(hit.mat, seed + b));
-        // ray.dir = normalize(u_shapes[2].pos - hit.pos);
+        // ray.dir = normalize(shapes[2].pos - hit.pos);
         if (dot(hit.normal, ray.dir) < 0) ray.dir = -ray.dir;
         ray.pos = hit.pos;
 
@@ -185,24 +207,24 @@ vec4 ray_trace(s_ray ray)
 
 void scene_setup()
 {
-    u_shapes[0].type = SHAPE_SPHERE;
-    u_shapes[0].pos = vec3(0.0, 0.0, -3.0);
-    u_shapes[0].f0 = 1.0;
-    u_shapes[0].mat.color = vec4(0.3961, 0.8941, 0.3961, 1.0);
-    u_shapes[0].mat.emissive = 0;
-    u_shapes[0].enabled = 1;
-    u_shapes[1].type = SHAPE_SPHERE;
-    u_shapes[1].pos = vec3(1.25, 1.25, -3.0);
-    u_shapes[1].f0 = 0.5;
-    u_shapes[1].mat.color = vec4(1.0, 0.3843, 0.5882, 1.0);
-    u_shapes[1].mat.emissive = 0;
-    u_shapes[1].enabled = 1;
-    u_shapes[2].type = SHAPE_SPHERE;
-    u_shapes[2].pos = vec3(0.0, 2.0, 0.0);
-    u_shapes[2].f0 = 1.0;
-    u_shapes[2].mat.color = 10.0*vec4(1.0);
-    u_shapes[2].mat.emissive = 1;
-    u_shapes[2].enabled = 0;
+    shapes[0].type = SHAPE_SPHERE;
+    shapes[0].pos = vec3(0.0, 0.0, -3.0);
+    shapes[0].f0 = 1.0;
+    shapes[0].mat.color = vec4(0.3961, 0.8941, 0.3961, 1.0);
+    shapes[0].mat.emissive = 0;
+    shapes[0].enabled = 1;
+    shapes[1].type = SHAPE_SPHERE;
+    shapes[1].pos = vec3(1.25, 1.25, -3.0);
+    shapes[1].f0 = 0.5;
+    shapes[1].mat.color = vec4(1.0, 0.3843, 0.5882, 1.0);
+    shapes[1].mat.emissive = 0;
+    shapes[1].enabled = 1;
+    shapes[2].type = SHAPE_SPHERE;
+    shapes[2].pos = vec3(0.0, 2.0, 0.0);
+    shapes[2].f0 = 1.0;
+    shapes[2].mat.color = 10.0*vec4(1.0);
+    shapes[2].mat.emissive = 1;
+    shapes[2].enabled = 0;
 }
 
 void main()
@@ -233,5 +255,6 @@ void main()
     vec4 prev_color = imageLoad(img_output, texel_coord);
     if (int(u_frame_cnt) > 1)
         color += prev_color;
+    color = u_shapes[1].mat.color;
     imageStore(img_output, texel_coord, color);
 }
