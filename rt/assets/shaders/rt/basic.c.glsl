@@ -71,10 +71,11 @@ const int SHAPE_POINT = 0;
 const int SHAPE_SPHERE = 1;
 const int SHAPE_PLANE = 2;
 const vec4 AMBIENT_LIGHT_COLOR = vec4(0.1, 0.1, 0.1, 1.0);
-const int RAY_MAX_BOUNCES = 100;
+const int RAY_MAX_BOUNCES = 20;
 const int RAY_NO_HIT = -1;
 const int MAX_SHAPES = 10;
 
+uniform float u_gamma;
 uniform float u_frame_cnt;
 uniform float u_time;
 uniform float u_rand;
@@ -194,19 +195,18 @@ vec4 ray_trace(s_ray ray)
 {
     s_hit hit;
     float seed = dot(ray.pos.xy, vec2(12.9898, 78.233)) + u_time;
-    vec4 c = vec4(0.0);
-    vec4 m = vec4(1.0);
-    int bounces = 0;
+    vec4 c = vec4(1.0);
+
+    float a = 0.5 * (ray.dir.y + 1.0);
+    vec4 ambient = (1.0 - a) * vec4(1.0) + a * vec4(0.5, 0.7, 1.0, 1.0);
+    // vec4 ambient = AMBIENT_LIGHT_COLOR;
 
     hit = intersect_scene(ray, RAY_NO_HIT);
-    if (hit.hit == RAY_NO_HIT) return (AMBIENT_LIGHT_COLOR);
+    if (hit.hit == RAY_NO_HIT) return (ambient);
     if (u_shapes[hit.hit].mat.emissive == 1) return (u_shapes[hit.hit].mat.color);
-    // TODO: COLOR SHOULD NOT ADD EACH BOUNCE
-    //          -   THAT CREATES A POSITIVE FEEDBACK LOOP AND THE SCENE ILLUMINATES ITSELF WITHOUT LIGHT
-    c += u_shapes[hit.hit].mat.color;
+    c *= u_shapes[hit.hit].mat.color;
     for (int b = 0; b < RAY_MAX_BOUNCES; b++)
     {
-        bounces++;
         // RANDOM BOUNCE DIRECTION
         ray.dir = normalize(random_bounce(hit, seed + b));
         if (dot(hit.normal, ray.dir) < 0) ray.dir = -ray.dir;
@@ -215,28 +215,29 @@ vec4 ray_trace(s_ray ray)
         // INTERSECT NEW RAY WITH THE SCENE
         s_hit new_hit = intersect_scene(ray, hit.hit);
 
-        // COMPUTE LIGHT
+        // COMPUTE LIGHT ATTENUATION
         float emmited_factor = 1.0;
-        if (new_hit.hit != RAY_NO_HIT)
-            emmited_factor = max(dot(new_hit.normal, -ray.dir), 0.0);
         float incident_factor = max(dot(hit.normal, ray.dir), 0.0);
-        c += u_shapes[new_hit.hit].mat.color * incident_factor * emmited_factor;
 
-        // CHECK IF RAY IS GOING TO SKY OR LIGHT
-        if (new_hit.hit == RAY_NO_HIT)
+        // CHECK IF RAY IS GOING TO SKY OR BOUNCING AGAIN
+        if (new_hit.hit != RAY_NO_HIT)
         {
-            m *= AMBIENT_LIGHT_COLOR;
+            emmited_factor = max(dot(new_hit.normal, -ray.dir), 0.0);
+            c *= u_shapes[new_hit.hit].mat.color * incident_factor * emmited_factor;
+        }
+        else if (new_hit.hit == RAY_NO_HIT)
+        {
+            c *= ambient;
             break;
         }
         if (u_shapes[new_hit.hit].mat.emissive != 0)
         {
-            m *= u_shapes[new_hit.hit].mat.color;
+            c *= u_shapes[new_hit.hit].mat.color;;
             break;
         }
         hit = new_hit;
     }
-    c /= float(bounces);
-    return (c * m);
+    return (c);
 }
 
 void main()
@@ -263,6 +264,11 @@ void main()
 
 /* COMPUTE COLOR */
     vec4 prev_color = imageLoad(u_img_output, texel_coord);
+
+    // reinhard tone mapping
+    vec4 mapped = color / (color + vec4(1.0));
+    color = pow(mapped, vec4(1.0 / u_gamma));
+
     if (int(u_frame_cnt) > 1)
         color += prev_color;
 

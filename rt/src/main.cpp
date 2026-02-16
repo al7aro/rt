@@ -11,6 +11,7 @@
 
 bool update_camera(rt::Window& win, rt::Camera& cam, rt::KeyHandler& wasd, rt::MouseHandler& mouse, float delta_time);
 void setup_scene(rt::Scene& scene);
+bool update_gamma(rt::MouseHandler& mouse, float& gamma);
 
 int main(void)
 {
@@ -27,6 +28,7 @@ int main(void)
     rt::Camera camera;
 
     /* CREATE SCENE */
+    float gamma = 2.0;
     rt::Scene scene;
     setup_scene(scene);
 
@@ -47,9 +49,12 @@ int main(void)
         win.PollEvents();
         if (update_camera(win, camera, *wasd, *mouse, delta_time))
             win.ResetFrameCount();
+        if (update_gamma(*mouse, gamma))
+            win.ResetFrameCount();
 
         glClear(GL_COLOR_BUFFER_BIT);
         c_sh.Bind();
+        c_sh.SetUniform("u_gamma", gamma);
         c_sh.SetUniform("cam.pos", camera.GetPosition());
         c_sh.SetUniform("cam.aspect", camera.GetAspect());
         c_sh.SetUniform("cam.fov", camera.GetFOV());
@@ -75,35 +80,52 @@ int main(void)
 
 void setup_scene(rt::Scene& scene)
 {
+    // int sph0 = scene.CreateSphere(glm::vec3(0.0, -0.5, -3.0), 0.5);
+    // scene.SetColor(sph0, glm::vec4(0.0, 0.0, 1.0, 1.0));
+    // int sph1 = scene.CreateSphere(glm::vec3(0.0, -10.5, -3.0), 9.5);
+    // scene.SetColor(sph1, glm::vec4(0.0, 1.0, 0.0, 1.0));
     int sph0 = scene.CreateSphere(glm::vec3(-1.25, 1.25, -3.0), 0.5);
     scene.SetColor(sph0, glm::vec4(0.0, 0.0, 1.0, 1.0));
     int sph1 = scene.CreateSphere(glm::vec3(0.0, 0.0, -3.0), 1.0);
     scene.SetColor(sph1, glm::vec4(0.0, 1.0, 0.0, 1.0));
     int sph2 = scene.CreateSphere(glm::vec3(1.25, 1.25, -3.0), 0.5);
     scene.SetColor(sph2, glm::vec4(1.0, 0.0, 0.0, 1.0));
-    int sph3 = scene.CreateSphere(glm::vec3(0.0, 2.0, 0.0), 1);
-    scene.SetColor(sph3, glm::vec4(glm::vec3(3.0), 1.0));
+    int sph3 = scene.CreateSphere(glm::vec3(0.0, 2.0, 0.0), 1.0);
+    scene.SetColor(sph3, glm::vec4(glm::vec3(100.0), 1.0));
     scene.SetEmissive(sph3, 1.0);
     /* INFINITE PLANE BOTTOM */
     int pl0 = scene.CreatePlane(glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
-    scene.SetColor(pl0, glm::vec4(1.0, 1.0, 0.0, 1.0));
+    scene.SetColor(pl0, glm::vec4(1.0));
     // /* INFINITE PLANE TOP */
-    // int pl1 = scene.CreatePlane(glm::vec3(0.0, 5.0, 0.0), glm::vec3(0.0, -1.0, 0.0));
-    // scene.SetColor(pl0, glm::vec4(1.0, 1.0, 0.0, 1.0));
-    // /* INFINITE PLANE LEFT */
-    // int pl2 = scene.CreatePlane(glm::vec3(-5.0, 0.0, 0.0), glm::vec3(1.0, 0.0, 0.0));
-    // scene.SetColor(pl0, glm::vec4(1.0, 1.0, 0.0, 1.0));
-    // /* INFINITE PLANE RIGHT */
-    // int pl3 = scene.CreatePlane(glm::vec3(5.0, 0.0, 0.0), glm::vec3(-1.0, 0.0, 0.0));
-    // scene.SetColor(pl0, glm::vec4(1.0, 1.0, 0.0, 1.0));
-    // /* INFINITE PLANE BACK */
-    // int pl4 = scene.CreatePlane(glm::vec3(0.0, 0.0, -10.0), glm::vec3(0.0, 0.0, 1.0));
-    // scene.SetColor(pl0, glm::vec4(1.0, 1.0, 0.0, 1.0));
+    int pl1 = scene.CreatePlane(glm::vec3(0.0, 5.0, 0.0), glm::vec3(0.0, -1.0, 0.0));
+    scene.SetColor(pl1, glm::vec4(1.0));
+    /* INFINITE PLANE LEFT */
+    int pl2 = scene.CreatePlane(glm::vec3(-5.0, 0.0, 0.0), glm::vec3(1.0, 0.0, 0.0));
+    scene.SetColor(pl2, glm::vec4(1.0));
+    /* INFINITE PLANE RIGHT */
+    int pl3 = scene.CreatePlane(glm::vec3(5.0, 0.0, 0.0), glm::vec3(-1.0, 0.0, 0.0));
+    scene.SetColor(pl3, glm::vec4(1.0));
+    /* INFINITE PLANE BACK */
+    int pl4 = scene.CreatePlane(glm::vec3(0.0, 0.0, -10.0), glm::vec3(0.0, 0.0, 1.0));
+    scene.SetColor(pl4, glm::vec4(1.0));
+}
+
+bool update_gamma(rt::MouseHandler& mouse, float& gamma)
+{
+    float offset = mouse.GetScrollOffset().y / 10.0;
+    mouse.ResetScrollOffset();
+    if (offset != 0.0)
+    {
+        if (gamma + offset > 0)
+            gamma += offset;
+        return (true);
+    }
+    return (false);
 }
 
 bool update_camera(rt::Window& win, rt::Camera& cam, rt::KeyHandler& wasd, rt::MouseHandler& mouse, float delta_time)
 {
-    float cam_speed = 7.5 + mouse.GetScrollOffset().y / 10.0;
+    float cam_speed = 7.5;
     glm::vec2 cursor_dir = mouse.GetCursorDir();
     bool updated = false;
     if (wasd.IsKeyDown(GLFW_KEY_U))
