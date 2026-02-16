@@ -10,11 +10,12 @@
 #include "compute_shader/ComputeShader.hpp"
 
 bool update_camera(rt::Window& win, rt::Camera& cam, rt::KeyHandler& wasd, rt::MouseHandler& mouse, float delta_time);
+void setup_scene(rt::Scene& scene);
 
 int main(void)
 {
-    rt::Window win("rt", 800, 800);
-    auto wasd = std::make_shared<rt::KeyHandler>(std::vector<int>({ GLFW_KEY_W, GLFW_KEY_A, GLFW_KEY_S, GLFW_KEY_D, GLFW_KEY_SPACE, GLFW_KEY_LEFT_SHIFT }));
+    rt::Window win("rt", 1500, 1500);
+    auto wasd = std::make_shared<rt::KeyHandler>(std::vector<int>({ GLFW_KEY_U, GLFW_KEY_W, GLFW_KEY_A, GLFW_KEY_S, GLFW_KEY_D, GLFW_KEY_SPACE, GLFW_KEY_LEFT_SHIFT }));
     auto mouse = std::make_shared<rt::MouseHandler>(std::vector<int>({GLFW_MOUSE_BUTTON_RIGHT, GLFW_MOUSE_BUTTON_LEFT}));
     win.AddListenTo(wasd);
     win.AddListenTo(mouse);
@@ -25,39 +26,16 @@ int main(void)
     rt::ComputeShader c_sh(ASSETS_DIRECTORY"/shaders/rt/basic.c.glsl", 800, 800);
     rt::Camera camera;
 
-    float test0[] = {
-        1.0, 0.0, 0.0,      /* pos */
-        0.0,                /* type (padding) */
-        1.0, 0.0, 0.0,      /* v0*/
-        0.0,                /* enabled (padding) */
-        1.0, 0.0, 0.0,      /* v1 */
-        0.0,                /* f0 (padding) */
-        1.0, 0.0, 0.0,      /* v2 */
-        1.0,                /* f1 (padding) */
-        0.0, 0.0, 1.0, 1.0, /* mat.color */
-        1.0,                /* mat.emissive */
-        0.0, 0.0, 0.0,       /* (padding) */
+    /* CREATE SCENE */
+    rt::Scene scene;
+    setup_scene(scene);
 
-        0.0, 0.0, 0.0, /* padding */
-
-        1.0, 0.0, 0.0,      /* pos */
-        0.0,                /* type (padding) */
-        1.0, 0.0, 0.0,      /* v0*/
-        0.0,                /* enabled (padding) */
-        1.0, 0.0, 0.0,      /* v1 */
-        0.0,                /* f0 (padding) */
-        1.0, 0.0, 0.0,      /* v2 */
-        1.0,                /* f1 (padding) */
-        0.0, 0.0, 1.0, 1.0, /* mat.color */
-        1.0,                /* mat.emissive */
-        0.0, 0.0, 0.0       /* (padding) */
-    };
+    /* LOAD SCENE TO GPU */
     unsigned int ubo[1];
     glCreateBuffers(1, ubo);
-    glNamedBufferData(ubo[0], 84*2+12, test0, GL_STATIC_DRAW);
-    glBindBufferRange(GL_UNIFORM_BUFFER, 0, ubo[0], 0, 84*2+12);
-    // glBindBufferRange(GL_UNIFORM_BUFFER, 0, ubo[0], 256, 84);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo[0]);
+    glNamedBufferData(ubo[0], scene.GetSceneSizeInBytes(), scene.GetData(), GL_STATIC_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 1, ubo[0]);
+    c_sh.SetUniform("u_shape_cnt", (int)scene.GetShapeCount());
 
     /* RANDOM */
     srand(static_cast<unsigned int>(28022021));
@@ -95,11 +73,27 @@ int main(void)
     return (0);
 }
 
+void setup_scene(rt::Scene& scene)
+{
+    int sph0 = scene.CreateSphere(glm::vec3(-1.25, 1.25, -3.0), 0.5);
+    scene.SetColor(sph0, glm::vec4(0.0, 0.0, 1.0, 1.0));
+    int sph1 = scene.CreateSphere(glm::vec3(0.0, 0.0, -3.0), 1.0);
+    scene.SetColor(sph1, glm::vec4(0.0, 1.0, 0.0, 1.0));
+    int sph2 = scene.CreateSphere(glm::vec3(1.25, 1.25, -3.0), 0.5);
+    scene.SetColor(sph2, glm::vec4(1.0, 0.0, 0.0, 1.0));
+    int sph3 = scene.CreateSphere(glm::vec3(0.0, 2.0, 0.0), 1);
+    scene.SetColor(sph3, glm::vec4(glm::vec3(3.0), 1.0));
+    scene.SetEmissive(sph3, 1.0);
+    scene.SetEnable(sph3, 0.0);
+}
+
 bool update_camera(rt::Window& win, rt::Camera& cam, rt::KeyHandler& wasd, rt::MouseHandler& mouse, float delta_time)
 {
     float cam_speed = 7.5 + mouse.GetScrollOffset().y / 10.0;
     glm::vec2 cursor_dir = mouse.GetCursorDir();
     bool updated = false;
+    if (wasd.IsKeyDown(GLFW_KEY_U))
+        updated = true;
     if (wasd.IsKeyDown(GLFW_KEY_W))
     {
         cam.Move(glm::vec3(0.0, 0.0, -1.0) * delta_time * cam_speed);

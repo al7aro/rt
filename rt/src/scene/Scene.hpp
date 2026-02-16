@@ -10,24 +10,24 @@ namespace rt {
 
     struct Material
     {
-        glm::vec4 color = glm::vec4(1.0);
-        int emissive = 0;
+        glm::vec4 color;
+        int emissive;
+        float p0;
+        float p1;
+        float p2;
     };
 
     struct Shape
     {
-        int type = -1;
-        glm::vec3 pos = glm::vec3(0.0);
-
-        int enabled = 1;
-        Material mat = Material{glm::vec4(1.0), 0};
-
-        float f0 = 0.0;
-        float f1 = 0.0;
-        float f2 = 0.0;
-        glm::vec3 v0 = glm::vec3(0.0);
-        glm::vec3 v1 = glm::vec3(0.0);
-        glm::vec3 v2 = glm::vec3(0.0);
+        glm::vec3 pos;
+        int type;
+        glm::vec3 v0;
+        int enabled;
+        glm::vec3 v1;
+        float f0;
+        glm::vec3 v2;
+        float f1;
+        Material mat;
     };
 
     class Scene
@@ -38,25 +38,42 @@ namespace rt {
         Scene() {}
         ~Scene() {}
 
-        void AddSphere(glm::vec3 pos, float radius, glm::vec4 color, int emissive)
+        /* COMMON FUNCTIONS */
+        void SetPosition(unsigned int id, const glm::vec3& pos) { _shapes[id].pos = pos; }
+        void SetEnable(unsigned id, int e) { _shapes[id].enabled = e; }
+        /* MATERIAL FUNCTIONS */
+        void SetColor(unsigned int id, const glm::vec4& c) { _shapes[id].mat.color = c; }
+        void SetEmissive(unsigned int id, float e) { _shapes[id].mat.emissive = e; }
+
+        /* SPHERE FUNCTIONS */
+        unsigned int CreateSphere(glm::vec3 pos = glm::vec3(0.0), float radius = 1.0)
         {
+            unsigned int ret = _shapes.size();
             Shape shape;
-            shape.type = 1;
             shape.pos = pos;
+            shape.type = 1;
+            shape.enabled = 1;
             shape.f0 = radius;
-            shape.mat.color = color;
-            shape.mat.emissive = emissive;
+            shape.mat.color = glm::vec4(1.0);
+            shape.mat.emissive = 0.0;
             _shapes.push_back(shape);
+            return (ret);
         }
+        void SetRadius(unsigned int id, float r) { _shapes[id].f0 = r; }
 
-        const std::vector<Shape>& GetShapes() const
+        const rt::Shape* GetData() const
         {
-            return (_shapes);
+            return (_shapes.data());
         }
 
-        int GetSceneSize() const
+        int GetShapeCount() const
         {
             return (_shapes.size());
+        }
+
+        int GetSceneSizeInBytes() const
+        {
+            return (_shapes.size() * sizeof(Shape));
         }
     };
 

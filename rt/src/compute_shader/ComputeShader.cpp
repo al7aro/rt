@@ -64,25 +64,4 @@ namespace rt {
         glProgramUniform1i(_id, loc, v);
     }
 
-    void ComputeShader::SetScene(const Scene& scene) const
-    {
-        int i = 0;
-        SetUniform("u_shape_cnt", scene.GetSceneSize());
-        for (auto& shape : scene.GetShapes())
-        {
-            SetUniform("u_shapes[" + std::to_string(i) + "].type", shape.type);
-            SetUniform("u_shapes[" + std::to_string(i) + "].pos", shape.pos);
-            SetUniform("u_shapes[" + std::to_string(i) + "].enabled", shape.enabled);
-            SetUniform("u_shapes[" + std::to_string(i) + "].mat.color", shape.mat.color);
-            SetUniform("u_shapes[" + std::to_string(i) + "].mat.emissive", shape.mat.emissive);
-            SetUniform("u_shapes[" + std::to_string(i) + "].f0", shape.f0);
-            SetUniform("u_shapes[" + std::to_string(i) + "].f1", shape.f1);
-            SetUniform("u_shapes[" + std::to_string(i) + "].f2", shape.f2);
-            SetUniform("u_shapes[" + std::to_string(i) + "].v0", shape.v0);
-            SetUniform("u_shapes[" + std::to_string(i) + "].v1", shape.v1);
-            SetUniform("u_shapes[" + std::to_string(i) + "].v2", shape.v2);
-            i++;
-        }
-    }
-
 }
