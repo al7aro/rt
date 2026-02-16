@@ -195,47 +195,43 @@ vec4 ray_trace(s_ray ray)
 {
     s_hit hit;
     float seed = dot(ray.pos.xy, vec2(12.9898, 78.233)) + u_time;
-    vec4 c = vec4(1.0);
+    vec4 c = vec4(0.0); // takes care of light found along the path
+    vec4 m = vec4(1.0); // takes care of color absortion along the path
 
-    float a = 0.5 * (ray.dir.y + 1.0);
-    vec4 ambient = (1.0 - a) * vec4(1.0) + a * vec4(0.5, 0.7, 1.0, 1.0);
-    // vec4 ambient = AMBIENT_LIGHT_COLOR;
+    // float a = 0.5 * (ray.dir.y + 1.0);
+    // vec4 ambient = (1.0 - a) * vec4(1.0) + a * vec4(0.5, 0.7, 1.0, 1.0);
+    vec4 ambient = AMBIENT_LIGHT_COLOR;
 
-    hit = intersect_scene(ray, RAY_NO_HIT);
-    if (hit.hit == RAY_NO_HIT) return (ambient);
-    if (u_shapes[hit.hit].mat.emissive == 1) return (u_shapes[hit.hit].mat.color);
-    c *= u_shapes[hit.hit].mat.color;
     for (int b = 0; b < RAY_MAX_BOUNCES; b++)
     {
+        hit = intersect_scene(ray, RAY_NO_HIT);
+
+        if (hit.hit == RAY_NO_HIT)
+        {
+            c += m * ambient;
+            break;
+        }
+        // COMPUTE LIGHT ATTENUATION
+        if (u_shapes[hit.hit].mat.emissive != 0)
+        {
+            c += m * u_shapes[hit.hit].mat.color;
+            break;
+        }
+
         // RANDOM BOUNCE DIRECTION
         ray.dir = normalize(random_bounce(hit, seed + b));
         if (dot(hit.normal, ray.dir) < 0) ray.dir = -ray.dir;
-        ray.pos = hit.pos;
+        ray.pos = hit.pos + hit.normal * 0.001;
 
-        // INTERSECT NEW RAY WITH THE SCENE
-        s_hit new_hit = intersect_scene(ray, hit.hit);
-
-        // COMPUTE LIGHT ATTENUATION
-        float emmited_factor = 1.0;
-        float incident_factor = max(dot(hit.normal, ray.dir), 0.0);
-
-        // CHECK IF RAY IS GOING TO SKY OR BOUNCING AGAIN
-        if (new_hit.hit != RAY_NO_HIT)
-        {
-            emmited_factor = max(dot(new_hit.normal, -ray.dir), 0.0);
-            c *= u_shapes[new_hit.hit].mat.color * incident_factor * emmited_factor;
-        }
-        else if (new_hit.hit == RAY_NO_HIT)
-        {
-            c *= ambient;
-            break;
-        }
-        if (u_shapes[new_hit.hit].mat.emissive != 0)
-        {
-            c *= u_shapes[new_hit.hit].mat.color;;
-            break;
-        }
-        hit = new_hit;
+        // This hardcoded diffuse calculation asumes all objects are diffuse
+        //      - When using distributed ray bouncing each material will send rays to their
+        //      - most common angle of reflection/difraction
+        //      - diffuse will be calculated naturally
+        //  EXAMPLE: a mterial sending rays to a certain direction is more prone to have recieved the previous ray from a certain direction
+        //          so we will backtrace towards that more possible direction
+        float diffuse = max(dot(hit.normal, ray.dir), 0.0);
+        // COMPUTE COLOR (using new ray since we are backtracing)
+        m *= u_shapes[hit.hit].mat.color * diffuse;
     }
     return (c);
 }

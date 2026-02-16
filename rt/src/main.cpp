@@ -91,7 +91,7 @@ void setup_scene(rt::Scene& scene)
     int sph2 = scene.CreateSphere(glm::vec3(1.25, 1.25, -3.0), 0.5);
     scene.SetColor(sph2, glm::vec4(1.0, 0.0, 0.0, 1.0));
     int sph3 = scene.CreateSphere(glm::vec3(0.0, 2.0, 0.0), 1.0);
-    scene.SetColor(sph3, glm::vec4(glm::vec3(100.0), 1.0));
+    scene.SetColor(sph3, glm::vec4(glm::vec3(10.0), 1.0));
     scene.SetEmissive(sph3, 1.0);
     /* INFINITE PLANE BOTTOM */
     int pl0 = scene.CreatePlane(glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
