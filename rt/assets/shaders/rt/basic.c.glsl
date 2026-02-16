@@ -22,26 +22,32 @@ struct s_material
 };
 /* **************************** */
 /* ******* PRIMITIVES ********* */
-// SPHERE : type = 0
-//      - int *type)        ->  type
+// SPHERE           : type = 1
+//      - int (type)        ->  type
 //      - float (radius)    ->  f0
+// PLANE (infinite) : type = 2
+//      - int (type)        ->  type
+//      - vec3 (normal)     ->  v0
+
 struct s_shape
 {
                     // BASE ALIGNMENT           // OFFSET
     vec3 pos;       //  16                  -   0
     int type;       //  4 (padding)
     vec3 v0;        //  16                  -   16
-    float f2;       //  4 (padding)
-    vec3 v1;        //  16                  -   32
     float f0;       //  4 (padding)
-    vec3 v2;        //  16                  -   48
+    vec3 v1;        //  16                  -   32
     float f1;       //  4 (padding)
-    s_material mat; //  16                  -   64  (COLOR)
-                    //  4                   -   80  (EMISSIVE)
-                    //  4                   -   84  (PADDING)
-                    //  4                   -   88  (PADDING)
-                    //  4                   -   92  (PADDING)
-                    // TOTAL = 92 + 4 = 96
+    vec3 v2;        //  16                  -   48
+    float f2;       //  4 (padding)
+    vec3 v3;        //  16                  -   48+16
+    float f3;       //  4 (padding)
+    s_material mat; //  16                  -   64+16  (COLOR)
+                    //  4                   -   80+16  (EMISSIVE)
+                    //  4                   -   84+16  (PADDING)
+                    //  4                   -   88+16  (PADDING)
+                    //  4                   -   92+16  (PADDING)
+                    // TOTAL = 92+16 + 4 = 96+16
 };
 
 /* **************************** */
@@ -94,6 +100,41 @@ vec3 random_vector(float seed)
     return vec3(r * cos(a), r * sin(a), z);
 }
 
+/* INFINITE PLANE - SPHERE INTERSECTION */
+s_hit intersect_plane(s_ray ray, int s)
+{
+    s_hit hit;
+    vec3 p0;
+    vec3 p1;
+    vec3 p_co;
+    vec3 p_no;
+    p0 = ray.pos;
+    p1 = ray.pos + ray.dir;
+    p_co = u_shapes[s].pos;
+    p_no = u_shapes[s].v0;
+    hit.hit = RAY_NO_HIT;
+
+    vec3 u = p1 - p0;
+    float dotp = dot(p_no, u);
+
+    if (abs(dotp) >= 0.001) // RECTA Y PLANO -> PARALELOS
+    {
+        vec3 w = p0 - p_co;
+        float fac = -dot(p_no, w) / dotp;
+        if (fac >= 0.0)
+        {
+            u = u * fac;
+            hit.pos = p0 + u;
+            hit.hit = s;
+            hit.dist = length(hit.pos - ray.pos);
+            hit.normal = p_no;
+            hit.ray = ray;
+        }
+    }
+    return (hit);
+}
+
+/* RAY - SPHERE INTERSECTION */
 s_hit intersect_sphere(s_ray ray, int s)
 {
     s_hit hit;
@@ -135,6 +176,8 @@ s_hit intersect_scene(s_ray ray, int ignore)
         s_hit current_hit;
         if (u_shapes[s].type == SHAPE_SPHERE)
             current_hit = intersect_sphere(ray, s);
+        else if (u_shapes[s].type == SHAPE_PLANE)
+            current_hit = intersect_plane(ray, s);
         // Check if this hit is closer than the previous one
         if (current_hit.hit != RAY_NO_HIT && current_hit.dist < closest_hit.dist)
             closest_hit = current_hit;
@@ -158,6 +201,8 @@ vec4 ray_trace(s_ray ray)
     hit = intersect_scene(ray, RAY_NO_HIT);
     if (hit.hit == RAY_NO_HIT) return (AMBIENT_LIGHT_COLOR);
     if (u_shapes[hit.hit].mat.emissive == 1) return (u_shapes[hit.hit].mat.color);
+    // TODO: COLOR SHOULD NOT ADD EACH BOUNCE
+    //          -   THAT CREATES A POSITIVE FEEDBACK LOOP AND THE SCENE ILLUMINATES ITSELF WITHOUT LIGHT
     c += u_shapes[hit.hit].mat.color;
     for (int b = 0; b < RAY_MAX_BOUNCES; b++)
     {

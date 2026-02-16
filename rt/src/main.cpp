@@ -14,7 +14,7 @@ void setup_scene(rt::Scene& scene);
 
 int main(void)
 {
-    rt::Window win("rt", 1500, 1500);
+    rt::Window win("rt", 900, 900);
     auto wasd = std::make_shared<rt::KeyHandler>(std::vector<int>({ GLFW_KEY_U, GLFW_KEY_W, GLFW_KEY_A, GLFW_KEY_S, GLFW_KEY_D, GLFW_KEY_SPACE, GLFW_KEY_LEFT_SHIFT }));
     auto mouse = std::make_shared<rt::MouseHandler>(std::vector<int>({GLFW_MOUSE_BUTTON_RIGHT, GLFW_MOUSE_BUTTON_LEFT}));
     win.AddListenTo(wasd);
@@ -23,7 +23,7 @@ int main(void)
     float delta_time = 0.0;
 
     rt::Canvas canvas;
-    rt::ComputeShader c_sh(ASSETS_DIRECTORY"/shaders/rt/basic.c.glsl", 800, 800);
+    rt::ComputeShader c_sh(ASSETS_DIRECTORY"/shaders/rt/basic.c.glsl", 900, 900);
     rt::Camera camera;
 
     /* CREATE SCENE */
@@ -84,7 +84,21 @@ void setup_scene(rt::Scene& scene)
     int sph3 = scene.CreateSphere(glm::vec3(0.0, 2.0, 0.0), 1);
     scene.SetColor(sph3, glm::vec4(glm::vec3(3.0), 1.0));
     scene.SetEmissive(sph3, 1.0);
-    scene.SetEnable(sph3, 0.0);
+    /* INFINITE PLANE BOTTOM */
+    int pl0 = scene.CreatePlane(glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
+    scene.SetColor(pl0, glm::vec4(1.0, 1.0, 0.0, 1.0));
+    // /* INFINITE PLANE TOP */
+    // int pl1 = scene.CreatePlane(glm::vec3(0.0, 5.0, 0.0), glm::vec3(0.0, -1.0, 0.0));
+    // scene.SetColor(pl0, glm::vec4(1.0, 1.0, 0.0, 1.0));
+    // /* INFINITE PLANE LEFT */
+    // int pl2 = scene.CreatePlane(glm::vec3(-5.0, 0.0, 0.0), glm::vec3(1.0, 0.0, 0.0));
+    // scene.SetColor(pl0, glm::vec4(1.0, 1.0, 0.0, 1.0));
+    // /* INFINITE PLANE RIGHT */
+    // int pl3 = scene.CreatePlane(glm::vec3(5.0, 0.0, 0.0), glm::vec3(-1.0, 0.0, 0.0));
+    // scene.SetColor(pl0, glm::vec4(1.0, 1.0, 0.0, 1.0));
+    // /* INFINITE PLANE BACK */
+    // int pl4 = scene.CreatePlane(glm::vec3(0.0, 0.0, -10.0), glm::vec3(0.0, 0.0, 1.0));
+    // scene.SetColor(pl0, glm::vec4(1.0, 1.0, 0.0, 1.0));
 }
 
 bool update_camera(rt::Window& win, rt::Camera& cam, rt::KeyHandler& wasd, rt::MouseHandler& mouse, float delta_time)

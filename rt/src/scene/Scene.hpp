@@ -22,11 +22,13 @@ namespace rt {
         glm::vec3 pos;
         int type;
         glm::vec3 v0;
-        int enabled;
-        glm::vec3 v1;
         float f0;
-        glm::vec3 v2;
+        glm::vec3 v1;
         float f1;
+        glm::vec3 v2;
+        float f2;
+        glm::vec3 v3;
+        float f3;
         Material mat;
     };
 
@@ -40,7 +42,6 @@ namespace rt {
 
         /* COMMON FUNCTIONS */
         void SetPosition(unsigned int id, const glm::vec3& pos) { _shapes[id].pos = pos; }
-        void SetEnable(unsigned id, int e) { _shapes[id].enabled = e; }
         /* MATERIAL FUNCTIONS */
         void SetColor(unsigned int id, const glm::vec4& c) { _shapes[id].mat.color = c; }
         void SetEmissive(unsigned int id, float e) { _shapes[id].mat.emissive = e; }
@@ -52,7 +53,6 @@ namespace rt {
             Shape shape;
             shape.pos = pos;
             shape.type = 1;
-            shape.enabled = 1;
             shape.f0 = radius;
             shape.mat.color = glm::vec4(1.0);
             shape.mat.emissive = 0.0;
@@ -60,6 +60,20 @@ namespace rt {
             return (ret);
         }
         void SetRadius(unsigned int id, float r) { _shapes[id].f0 = r; }
+
+        /* PLANE FUNCTIONS */
+        unsigned int CreatePlane(const glm::vec3& origin = glm::vec3(0.0), const glm::vec3& normal = glm::vec3(0.0, 1.0, 0.0))
+        {
+            unsigned int ret = _shapes.size();
+            Shape shape;
+            shape.pos = origin;
+            shape.type = 2;
+            shape.v0 = normal;
+            shape.mat.color = glm::vec4(1.0);
+            shape.mat.emissive = 0.0;
+            _shapes.push_back(shape);
+            return (ret);
+        }
 
         const rt::Shape* GetData() const
         {
