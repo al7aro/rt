@@ -45,10 +45,10 @@ namespace rt {
         glDeleteShader(_f_sh);
     }
 
-    void Canvas::Render(unsigned int texture) const
+    void Canvas::Render(unsigned int texture, unsigned int unit) const
     {
         glUseProgram(_program);
-        glBindTextureUnit(0, texture);
+        glBindTextureUnit(unit, texture);
         glBindVertexArray(_vao);
         glDrawArrays(GL_TRIANGLES, 0, 6);
     }

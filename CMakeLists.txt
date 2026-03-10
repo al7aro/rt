@@ -7,6 +7,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(WORKSPACE_NAME "rt")
 project(${WORKSPACE_NAME})
 
+add_compile_definitions(RT_DIRECTORY=\"${PROJECT_SOURCE_DIR}/rt\")
+
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${WORKSPACE_NAME})
 
 add_compile_definitions(ASSETS_DIRECTORY=\"${PROJECT_SOURCE_DIR}/${WORKSPACE_NAME}/assets\")
@@ -64,10 +66,12 @@ target_link_libraries(${WORKSPACE_NAME} glfw)
 target_link_libraries(${WORKSPACE_NAME} glad)
 target_link_libraries(${WORKSPACE_NAME} glm)
 target_link_libraries(${WORKSPACE_NAME} stb)
+target_link_libraries(${WORKSPACE_NAME} imgui)
 target_link_libraries(${WORKSPACE_NAME} OpenGL::GL)
 
 # Headers
 target_include_directories(${WORKSPACE_NAME} PUBLIC "vendor/glfw/include")
 target_include_directories(${WORKSPACE_NAME} PUBLIC "vendor/glad/include")
 target_include_directories(${WORKSPACE_NAME} PUBLIC "vendor/imgui")
+target_include_directories(${WORKSPACE_NAME} PUBLIC "vendor/imgui/backends")
 target_include_directories(${WORKSPACE_NAME} PUBLIC "vendor/stb/include")

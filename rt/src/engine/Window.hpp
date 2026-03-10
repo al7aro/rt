@@ -43,6 +43,8 @@ namespace rt {
         /* Does not terminate GLFW */
         void Destroy() const;
 
+        GLFWwindow* GetWindowPointer() const;
+
         /* INPUT */
         void AddListenTo(std::shared_ptr<MouseHandler> handler);
         void AddListenTo(std::shared_ptr<KeyHandler> handler);

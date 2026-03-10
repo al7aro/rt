@@ -75,14 +75,19 @@ const int RAY_MAX_BOUNCES = 20;
 const int RAY_NO_HIT = -1;
 const int MAX_SHAPES = 10;
 
-uniform float u_exposure;
+uniform float u_t;
+uniform float u_S;
+uniform float u_N;
+uniform float u_K;
+
 uniform float u_frame_cnt;
 uniform float u_time;
 uniform float u_rand;
 uniform s_camera cam;
 uniform int u_shape_cnt;
-layout(rgba32f, binding = 0) uniform image2D u_img_output;
-layout (std140, binding = 1) uniform u_scene
+layout(rgba32f, binding = 0) uniform image2D u_img_display;
+layout(rgba32f, binding = 1) uniform image2D u_img_accumulated;
+layout (std140, binding = 2) uniform u_scene
 {
     s_shape u_shapes[MAX_SHAPES];
 };
@@ -259,16 +264,12 @@ void main()
     color = ray_trace(ray);
 
 /* COMPUTE COLOR */
-    vec4 prev_color = imageLoad(u_img_output, texel_coord);
-
-    // float gamma = 2.2;
-    // vec3 hdrColor = color.rgb;
-    // vec3 mapped = vec3(1.0) - exp(-hdrColor * u_exposure);
-    // mapped = pow(mapped, vec3(1.0 / gamma));
-    // color = vec4(mapped, 1.0);
+    vec4 prev_color = imageLoad(u_img_accumulated, texel_coord);
 
     if (int(u_frame_cnt) > 1)
-        color += prev_color;
+        color = mix(prev_color, color, 1.0/u_frame_cnt);
 
-    imageStore(u_img_output, texel_coord, color);
+    imageStore(u_img_accumulated, texel_coord, color);
+    color.rgb = color.rgb * (u_S * u_t) / (u_N * u_N * u_K);
+    imageStore(u_img_display, texel_coord, color);
 }

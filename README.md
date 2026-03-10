@@ -27,3 +27,16 @@ The goal is to implement a RayTracer taking advantage of GPU paralelism with the
 - [ ] Cylinder 🥫
 - [ ] Cone 🍧
 
+# Export
+
+Generated images are exported in the following format:
+
+`t[compute time]_exp[exposure]_iso[iso]_k[sensor constant]_n[aperture size].hdr`
+
+- Time is in seconds.
+- All values are multiplied by 100.
+
+# TODO
+
+- [ ] Intereseccion RAYO - QUAD
+- [ ] Implementar distintas BRDF

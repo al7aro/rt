@@ -92,6 +92,11 @@ namespace rt {
         return (_frame_cnt);
     }
 
+    GLFWwindow* Window::GetWindowPointer() const
+    {
+        return (_win);
+    }
+
     /* INPUT */
     void Window::AddListenTo(std::shared_ptr<MouseHandler> handler)
     {

@@ -17,14 +17,27 @@ namespace rt {
         glDeleteShader(c_sh);
 
         /* INIT TEXTURE FOR WRITTING */
-        glCreateTextures(GL_TEXTURE_2D, 1, &_tex);
-        glBindTextureUnit(0, _tex);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, _width, _height);
-        glBindImageTexture(0, _tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+        glCreateTextures(GL_TEXTURE_2D, 2, _tex);
+        for (int i = 0; i < 2; i++)
+        {
+            glActiveTexture(GL_TEXTURE0 + i);
+            glBindTextureUnit(i, _tex[i]);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, _width, _height);
+            glBindImageTexture(i, _tex[i], 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+        }
+    }
+
+    unsigned int ComputeShader::GetWidth() const
+    {
+        return (_width);
+    }
+    unsigned int ComputeShader::GetHeight() const
+    {
+        return (_height);
     }
 
     void ComputeShader::Bind()
@@ -32,9 +45,14 @@ namespace rt {
         glUseProgram(_id);
     }
 
-    unsigned int ComputeShader::GetTextureId() const
+    unsigned int ComputeShader::GetDisplayTextureId() const
     {
-        return (_tex);
+        return (_tex[DISPLAY_TEXTURE]);
+    }
+
+    unsigned int ComputeShader::GetAccumulatedTextureId() const
+    {
+        return (_tex[ACCUMULATED_TEXTURE]);
     }
 
     void ComputeShader::WaitFinished() const
