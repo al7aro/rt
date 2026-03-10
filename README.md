@@ -36,6 +36,10 @@ Generated images are exported in the following format:
 - Time is in seconds.
 - All values are multiplied by 100.
 
+# HDR viewer
+
+- [OpenHDR Viewer](https://viewer.openhdr.org/)
+
 # TODO
 
 - [ ] Intereseccion RAYO - QUAD
