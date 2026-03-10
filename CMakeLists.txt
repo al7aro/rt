@@ -30,6 +30,8 @@ endif()
 
 # STB
 add_subdirectory("vendor/stb")
+# STB
+add_subdirectory("vendor/imgui")
 # GLM
 add_subdirectory("vendor/glm")
 # GLAD

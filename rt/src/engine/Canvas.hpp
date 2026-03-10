@@ -19,6 +19,7 @@ namespace rt {
 
         void Render(unsigned int texture) const;
         void SetUniform(const std::string& name, float v) const;
+        void SetUniform(const std::string& name, int v) const;
     };
 
 }

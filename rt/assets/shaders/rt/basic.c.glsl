@@ -75,7 +75,7 @@ const int RAY_MAX_BOUNCES = 20;
 const int RAY_NO_HIT = -1;
 const int MAX_SHAPES = 10;
 
-uniform float u_gamma;
+uniform float u_exposure;
 uniform float u_frame_cnt;
 uniform float u_time;
 uniform float u_rand;
@@ -261,9 +261,11 @@ void main()
 /* COMPUTE COLOR */
     vec4 prev_color = imageLoad(u_img_output, texel_coord);
 
-    // reinhard tone mapping
-    vec4 mapped = color / (color + vec4(1.0));
-    color = pow(mapped, vec4(1.0 / u_gamma));
+    // float gamma = 2.2;
+    // vec3 hdrColor = color.rgb;
+    // vec3 mapped = vec3(1.0) - exp(-hdrColor * u_exposure);
+    // mapped = pow(mapped, vec3(1.0 / gamma));
+    // color = vec4(mapped, 1.0);
 
     if (int(u_frame_cnt) > 1)
         color += prev_color;

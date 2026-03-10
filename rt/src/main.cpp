@@ -11,12 +11,11 @@
 
 bool update_camera(rt::Window& win, rt::Camera& cam, rt::KeyHandler& wasd, rt::MouseHandler& mouse, float delta_time);
 void setup_scene(rt::Scene& scene);
-bool update_gamma(rt::MouseHandler& mouse, float& gamma);
 
 int main(void)
 {
     rt::Window win("rt", 900, 900);
-    auto wasd = std::make_shared<rt::KeyHandler>(std::vector<int>({ GLFW_KEY_U, GLFW_KEY_W, GLFW_KEY_A, GLFW_KEY_S, GLFW_KEY_D, GLFW_KEY_SPACE, GLFW_KEY_LEFT_SHIFT }));
+    auto wasd = std::make_shared<rt::KeyHandler>(std::vector<int>({ GLFW_KEY_U, GLFW_KEY_W, GLFW_KEY_A, GLFW_KEY_S, GLFW_KEY_D, GLFW_KEY_SPACE, GLFW_KEY_LEFT_SHIFT, GLFW_KEY_ENTER }));
     auto mouse = std::make_shared<rt::MouseHandler>(std::vector<int>({GLFW_MOUSE_BUTTON_RIGHT, GLFW_MOUSE_BUTTON_LEFT}));
     win.AddListenTo(wasd);
     win.AddListenTo(mouse);
@@ -28,7 +27,11 @@ int main(void)
     rt::Camera camera;
 
     /* CREATE SCENE */
-    float gamma = 2.0;
+    float EXPOSURE_T = 0.5;
+    float ISO = 200;
+    float SENSOR_K = 12.5;
+    float APERTURE = 4.5;
+
     rt::Scene scene;
     setup_scene(scene);
 
@@ -49,12 +52,9 @@ int main(void)
         win.PollEvents();
         if (update_camera(win, camera, *wasd, *mouse, delta_time))
             win.ResetFrameCount();
-        if (update_gamma(*mouse, gamma))
-            win.ResetFrameCount();
 
         glClear(GL_COLOR_BUFFER_BIT);
         c_sh.Bind();
-        c_sh.SetUniform("u_gamma", gamma);
         c_sh.SetUniform("cam.pos", camera.GetPosition());
         c_sh.SetUniform("cam.aspect", camera.GetAspect());
         c_sh.SetUniform("cam.fov", camera.GetFOV());
@@ -64,7 +64,12 @@ int main(void)
         c_sh.SetUniform("u_rand", static_cast<float>(rand())/static_cast<float>(RAND_MAX));
         c_sh.WaitFinished();
 
-        canvas.SetUniform("u_frame_cnt", win.GetFrameCount());
+        canvas.SetUniform("u_t", EXPOSURE_T);
+        canvas.SetUniform("u_S", ISO);
+        canvas.SetUniform("u_K", SENSOR_K);
+        canvas.SetUniform("u_N", APERTURE);
+
+        canvas.SetUniform("u_frame_cnt", (float)win.GetFrameCount());
         canvas.Render(c_sh.GetTextureId());
 
         win.SwapBuffers();
@@ -108,19 +113,6 @@ void setup_scene(rt::Scene& scene)
     /* INFINITE PLANE BACK */
     int pl4 = scene.CreatePlane(glm::vec3(0.0, 0.0, -10.0), glm::vec3(0.0, 0.0, 1.0));
     scene.SetColor(pl4, glm::vec4(1.0));
-}
-
-bool update_gamma(rt::MouseHandler& mouse, float& gamma)
-{
-    float offset = mouse.GetScrollOffset().y / 10.0;
-    mouse.ResetScrollOffset();
-    if (offset != 0.0)
-    {
-        if (gamma + offset > 0)
-            gamma += offset;
-        return (true);
-    }
-    return (false);
 }
 
 bool update_camera(rt::Window& win, rt::Camera& cam, rt::KeyHandler& wasd, rt::MouseHandler& mouse, float delta_time)

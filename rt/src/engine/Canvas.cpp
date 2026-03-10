@@ -59,4 +59,10 @@ namespace rt {
         glProgramUniform1f(_program, loc, v);
     }
 
+    void Canvas::SetUniform(const std::string& name, int v) const
+    {
+        unsigned int loc = glGetUniformLocation(_program, name.c_str());
+        glProgramUniform1i(_program, loc, v);
+    }
+
 }

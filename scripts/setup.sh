@@ -14,6 +14,9 @@ git clone https://github.com/g-truc/glm.git "$SCRIPT_DIR/../vendor/glm"
 # DOWNLOAD STB
 git clone https://github.com/al7aro/stb.git "$SCRIPT_DIR/../vendor/stb"
 
+# DOWNLOAD IMGUI
+git clone https://github.com/ocornut/imgui.git "$SCRIPT_DIR/../vendor/imgui"
+
 mkdir -p "${SCRIPT_DIR}/../build"
 
 cmake -S "${SCRIPT_DIR}/.." -B "${SCRIPT_DIR}/../build"
