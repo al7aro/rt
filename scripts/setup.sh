@@ -15,7 +15,7 @@ git clone https://github.com/g-truc/glm.git "$SCRIPT_DIR/../vendor/glm"
 git clone https://github.com/al7aro/stb.git "$SCRIPT_DIR/../vendor/stb"
 
 # DOWNLOAD IMGUI
-git clone https://github.com/ocornut/imgui.git "$SCRIPT_DIR/../vendor/imgui"
+git clone https://github.com/al7aro/imgui.git "$SCRIPT_DIR/../vendor/imgui"
 
 mkdir -p "${SCRIPT_DIR}/../build"
 

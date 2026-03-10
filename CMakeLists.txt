@@ -69,3 +69,5 @@ target_link_libraries(${WORKSPACE_NAME} OpenGL::GL)
 # Headers
 target_include_directories(${WORKSPACE_NAME} PUBLIC "vendor/glfw/include")
 target_include_directories(${WORKSPACE_NAME} PUBLIC "vendor/glad/include")
+target_include_directories(${WORKSPACE_NAME} PUBLIC "vendor/imgui")
+target_include_directories(${WORKSPACE_NAME} PUBLIC "vendor/stb/include")
