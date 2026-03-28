@@ -27,16 +27,18 @@ std::string image_filename(float t, float exp, float iso, float k, float n);
 int main(void)
 {
     rt::Window win("rt", 900, 900);
-    auto wasd = std::make_shared<rt::KeyHandler>(std::vector<int>({ GLFW_KEY_U, GLFW_KEY_W, GLFW_KEY_A, GLFW_KEY_S, GLFW_KEY_D, GLFW_KEY_SPACE, GLFW_KEY_LEFT_SHIFT, GLFW_KEY_ENTER, GLFW_KEY_LEFT_CONTROL }));
+    auto wasd = std::make_shared<rt::KeyHandler>(std::vector<int>({ GLFW_KEY_U, GLFW_KEY_W, GLFW_KEY_A, GLFW_KEY_S, GLFW_KEY_D, GLFW_KEY_SPACE, GLFW_KEY_LEFT_SHIFT, GLFW_KEY_ENTER }));
     auto mouse = std::make_shared<rt::MouseHandler>(std::vector<int>({GLFW_MOUSE_BUTTON_RIGHT, GLFW_MOUSE_BUTTON_LEFT}));
     win.AddListenTo(wasd);
     win.AddListenTo(mouse);
     rt::Timer timer, delta_timer, aux_timer;
     float delta_time = 0.0;
+    bool enable_input = false;
 
     rt::Canvas canvas;
     rt::ComputeShader c_sh(ASSETS_DIRECTORY"/shaders/rt/basic.c.glsl", 900, 900);
     rt::Camera camera;
+    camera.SetPosition(glm::vec3(0.0, 0.0, 4.25));
 
     /* CREATE SCENE */
     bool updated_scene = 0;
@@ -46,6 +48,14 @@ int main(void)
     float ISO = 200;
     float SENSOR_K = 12.5;
     float APERTURE = 4.5;
+    enum RenderModel
+    {
+        LAMBERT = 0,
+        BLINN_PHONG = 1,
+        COOK_TORRANCE = 2
+    };
+    char RENDER_MODEL_STR[] = "Lambert\0Blinn-Phong\0Cook-Torrance\0";
+    int RENDER_MODEL = RenderModel::LAMBERT;
 
     rt::Scene scene;
     setup_scene(scene);
@@ -79,7 +89,9 @@ int main(void)
         }
         delta_timer.Restart();
         win.PollEvents();
-        updated_scene |= update_camera(win, camera, *wasd, *mouse, delta_time);
+
+        if (enable_input)
+            updated_scene |= update_camera(win, camera, *wasd, *mouse, delta_time);
 
         glClear(GL_COLOR_BUFFER_BIT);
 /* ********** IMGUI FRAME SETUP ********** */
@@ -92,6 +104,8 @@ int main(void)
         updated_scene |= ImGui::SliderFloat("ISO", &ISO, 0.0, 1000.0);
         updated_scene |= ImGui::SliderFloat("Aperture", &APERTURE, 0.0, 50.0);
         updated_scene |= ImGui::SliderFloat("Sensor Constant", &SENSOR_K, 0.0, 100.0);
+        updated_scene |= ImGui::Combo("Render Model", &RENDER_MODEL, RENDER_MODEL_STR);
+        ImGui::Checkbox("Enable Input", &enable_input);
         if (ImGui::Button("Export"))
             export_image(c_sh.GetDisplayTextureId(), c_sh.GetWidth(), c_sh.GetHeight(),
                 RT_DIRECTORY"/renders/" + image_filename(calculation_timer.EllapsedSeconds(), EXPOSURE_T, ISO, APERTURE, SENSOR_K));
@@ -110,6 +124,7 @@ int main(void)
         c_sh.SetUniform("u_S", ISO);
         c_sh.SetUniform("u_K", SENSOR_K);
         c_sh.SetUniform("u_N", APERTURE);
+        c_sh.SetUniform("u_render_model", RENDER_MODEL);
 
         c_sh.WaitFinished();
         canvas.Render(c_sh.GetDisplayTextureId(), rt::ComputeShader::DISPLAY_TEXTURE);
@@ -159,30 +174,61 @@ void setup_scene(rt::Scene& scene)
     // scene.SetColor(sph0, glm::vec4(0.0, 0.0, 1.0, 1.0));
     // int sph1 = scene.CreateSphere(glm::vec3(0.0, -10.5, -3.0), 9.5);
     // scene.SetColor(sph1, glm::vec4(0.0, 1.0, 0.0, 1.0));
-    int sph0 = scene.CreateSphere(glm::vec3(-1.25, 1.25, -3.0), 0.5);
+    int sph0 = scene.CreateSphere(glm::vec3(-1.25, 1.25, 0.0), 0.5);
     scene.SetColor(sph0, glm::vec4(0.0, 0.0, 1.0, 1.0));
-    int sph1 = scene.CreateSphere(glm::vec3(0.0, 0.0, -3.0), 1.0);
+    int sph1 = scene.CreateSphere(glm::vec3(0.0, 0.0, 0.0), 1.0);
     scene.SetColor(sph1, glm::vec4(0.0, 1.0, 0.0, 1.0));
-    int sph2 = scene.CreateSphere(glm::vec3(1.25, 1.25, -3.0), 0.5);
+    int sph2 = scene.CreateSphere(glm::vec3(1.25, 1.25, 0.0), 0.5);
     scene.SetColor(sph2, glm::vec4(1.0, 0.0, 0.0, 1.0));
-    int sph3 = scene.CreateSphere(glm::vec3(0.0, 2.0, 0.0), 1.0);
+    int sph3 = scene.CreateSphere(glm::vec3(0.0, 2, 0.0), 0.25);
     scene.SetColor(sph3, glm::vec4(glm::vec3(10.0), 1.0));
     scene.SetEmissive(sph3, 1.0);
-    /* INFINITE PLANE BOTTOM */
-    int pl0 = scene.CreatePlane(glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
-    scene.SetColor(pl0, glm::vec4(1.0));
-    // /* INFINITE PLANE TOP */
-    int pl1 = scene.CreatePlane(glm::vec3(0.0, 5.0, 0.0), glm::vec3(0.0, -1.0, 0.0));
-    scene.SetColor(pl1, glm::vec4(1.0));
-    /* INFINITE PLANE LEFT */
-    int pl2 = scene.CreatePlane(glm::vec3(-5.0, 0.0, 0.0), glm::vec3(1.0, 0.0, 0.0));
-    scene.SetColor(pl2, glm::vec4(1.0));
-    /* INFINITE PLANE RIGHT */
-    int pl3 = scene.CreatePlane(glm::vec3(5.0, 0.0, 0.0), glm::vec3(-1.0, 0.0, 0.0));
-    scene.SetColor(pl3, glm::vec4(1.0));
-    /* INFINITE PLANE BACK */
-    int pl4 = scene.CreatePlane(glm::vec3(0.0, 0.0, -10.0), glm::vec3(0.0, 0.0, 1.0));
-    scene.SetColor(pl4, glm::vec4(1.0));
+    // /* INFINITE PLANE BOTTOM */
+    // int pl0 = scene.CreatePlane(glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
+    // scene.SetColor(pl0, glm::vec4(1.0));
+    // // /* INFINITE PLANE TOP */
+    // int pl1 = scene.CreatePlane(glm::vec3(0.0, 5.0, 0.0), glm::vec3(0.0, -1.0, 0.0));
+    // scene.SetColor(pl1, glm::vec4(1.0));
+    // /* INFINITE PLANE LEFT */
+    // int pl2 = scene.CreatePlane(glm::vec3(-5.0, 0.0, 0.0), glm::vec3(1.0, 0.0, 0.0));
+    // scene.SetColor(pl2, glm::vec4(1.0));
+    // /* INFINITE PLANE RIGHT */
+    // int pl3 = scene.CreatePlane(glm::vec3(5.0, 0.0, 0.0), glm::vec3(-1.0, 0.0, 0.0));
+    // scene.SetColor(pl3, glm::vec4(1.0));
+    // /* INFINITE PLANE BACK */
+    // int pl4 = scene.CreatePlane(glm::vec3(0.0, 0.0, -10.0), glm::vec3(0.0, 0.0, 1.0));
+    // scene.SetColor(pl4, glm::vec4(1.0));
+
+    int q_bot = scene.CreateQuad(
+        glm::vec3(2.0, -2.0, -2.0),
+        glm::vec3(-2.0, -2.0, -2.0),
+        glm::vec3(-2.0, -2.0, 2.0),
+        glm::vec3(2.0, -2.0, 2.0)
+    );
+    int q_top = scene.CreateQuad(
+        glm::vec3(-2.0, 2.0, -2.0),
+        glm::vec3(2.0, 2.0, -2.0),
+        glm::vec3(2.0, 2.0, 2.0),
+        glm::vec3(-2.0, 2.0, 2.0)
+    );
+    int q_back = scene.CreateQuad(
+        glm::vec3(-2.0, -2.0, -2.0),
+        glm::vec3(2.0, -2.0, -2.0),
+        glm::vec3(2.0, 2.0, -2.0),
+        glm::vec3(-2.0, 2.0, -2.0)
+    );
+    int q_left = scene.CreateQuad(
+        glm::vec3(-2.0, -2.0, -2.0),
+        glm::vec3(-2.0, 2.0, -2.0),
+        glm::vec3(-2.0, 2.0, 2.0),
+        glm::vec3(-2.0, -2.0, 2.0)
+    );
+    int q_right = scene.CreateQuad(
+        glm::vec3(2.0, 2.0, -2.0),
+        glm::vec3(2.0, -2.0, -2.0),
+        glm::vec3(2.0, -2.0, 2.0),
+        glm::vec3(2.0, 2.0, 2.0)
+    );
 }
 
 bool update_camera(rt::Window& win, rt::Camera& cam, rt::KeyHandler& wasd, rt::MouseHandler& mouse, float delta_time)
@@ -222,9 +268,7 @@ bool update_camera(rt::Window& win, rt::Camera& cam, rt::KeyHandler& wasd, rt::M
         cam.Move(glm::vec3(0.0, 1.0, 0.0) * delta_time * cam_speed);
         updated = true;
     }
-    if (wasd.IsKeyDown(GLFW_KEY_LEFT_CONTROL))
-    {
-        if (mouse.IsButtonDown(GLFW_MOUSE_BUTTON_LEFT))
+    if (mouse.IsButtonDown(GLFW_MOUSE_BUTTON_LEFT))
         {
             win.SetCursorMode(GLFW_CURSOR_DISABLED);
             cam.Yaw(-cursor_dir.x * 0.005);
@@ -232,8 +276,7 @@ bool update_camera(rt::Window& win, rt::Camera& cam, rt::KeyHandler& wasd, rt::M
             if (glm::length(cursor_dir) > 0.0)
             updated = true;
         }
-        else
+    else
         win.SetCursorMode(GLFW_CURSOR_NORMAL);
-    }
     return (updated);
 }

@@ -27,6 +27,10 @@ The goal is to implement a RayTracer taking advantage of GPU paralelism with the
 - [ ] Cylinder 🥫
 - [ ] Cone 🍧
 
+# Methodology
+
+La BRDF NO es una FUNCION que diga como deben rebotar los rayos de nuestro raytracer, la BRDF lo unico que sabe es que, si de mis rayos aleatorios, uno de ellos va en cierta direccion (acorde al modelo del material) entonces ese rayo tiene menos energia. SIN EMBARGO, para hacer los calculos mas rapidos, se usa una funcion SAMPLE que lanza rayos PRECISAMENTE en la direccion en la que sabemos que va a haber mas contribucion al color.
+
 # Export
 
 Generated images are exported in the following format:

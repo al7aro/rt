@@ -70,15 +70,18 @@ struct s_hit
 const int SHAPE_POINT = 0;
 const int SHAPE_SPHERE = 1;
 const int SHAPE_PLANE = 2;
+const int SHAPE_QUAD = 3;
 const vec4 AMBIENT_LIGHT_COLOR = vec4(0.1, 0.1, 0.1, 1.0);
 const int RAY_MAX_BOUNCES = 20;
 const int RAY_NO_HIT = -1;
 const int MAX_SHAPES = 10;
+const float PI = 3.1415926;
 
 uniform float u_t;
 uniform float u_S;
 uniform float u_N;
 uniform float u_K;
+uniform int u_render_model = 0;
 
 uniform float u_frame_cnt;
 uniform float u_time;
@@ -104,6 +107,63 @@ vec3 random_vector(float seed)
     float a = random(seed + 0.123) * 6.283185;   // Range 0 to 2*PI
     float r = sqrt(1.0 - z * z);
     return vec3(r * cos(a), r * sin(a), z);
+}
+
+float trig_area(vec3 a, vec3 b, vec3 c)
+{
+    return 0.5*(length(cross(b-a, c-a)));
+}
+
+int is_point_in_trig(vec3 point, vec3 a, vec3 b, vec3 c)
+{
+    float a_trig = trig_area(a, b, c);
+    float a1 = abs(trig_area(point, b, c));
+    float a2 = abs(trig_area(a, point, c));
+    float a3 = abs(trig_area(a, b, point));
+    float a_tot = a1+a2+a3;
+    if (a_tot <= a_trig + 1e-3)
+        return (1);
+    return (0);
+}
+
+s_hit intersect_quad(s_ray ray, int s)
+{
+    s_hit hit;
+    vec3 p0;
+    vec3 p1;
+    p0 = ray.pos;
+    p1 = ray.pos + ray.dir;
+    hit.hit = RAY_NO_HIT;
+
+    vec3 a = u_shapes[s].v0;
+    vec3 b = u_shapes[s].v1;
+    vec3 c = u_shapes[s].v2;
+    vec3 d = u_shapes[s].v3;
+    vec3 p_co = u_shapes[s].pos;
+    vec3 p_no = normalize(cross(b-a, c-a));
+
+    vec3 u = p1 - p0;
+    float dotp = dot(p_no, u);
+
+    if (abs(dotp) >= 0.001) // RECTA Y PLANO -> PARALELOS
+    {
+        vec3 w = p0 - p_co;
+        float fac = -dot(p_no, w) / dotp;
+        if (fac >= 0.0)
+        {
+            u = u * fac;
+            vec3 pos = p0 + u;  // punto de intereseccion con el plano
+                                    // hay que comprobar si esta en el quad
+            if (is_point_in_trig(pos, a, b, c) == 0 && is_point_in_trig(pos, a, c, d) == 0)
+                return (hit);
+            hit.pos = pos;
+            hit.hit = s;
+            hit.dist = length(hit.pos - ray.pos);
+            hit.normal = p_no;
+            hit.ray = ray;
+        }
+    }
+    return (hit);
 }
 
 /* INFINITE PLANE - SPHERE INTERSECTION */
@@ -184,6 +244,8 @@ s_hit intersect_scene(s_ray ray, int ignore)
             current_hit = intersect_sphere(ray, s);
         else if (u_shapes[s].type == SHAPE_PLANE)
             current_hit = intersect_plane(ray, s);
+        else if (u_shapes[s].type == SHAPE_QUAD)
+            current_hit = intersect_quad(ray, s);
         // Check if this hit is closer than the previous one
         if (current_hit.hit != RAY_NO_HIT && current_hit.dist < closest_hit.dist)
             closest_hit = current_hit;
@@ -194,6 +256,57 @@ s_hit intersect_scene(s_ray ray, int ignore)
 vec3 random_bounce(s_hit hit, float seed)
 {
     return (random_vector(seed));
+}
+
+// LAMBERT
+vec3 lambert_SAMPLE(s_hit hit, s_material mat, float seed)
+{
+    vec3 ray;
+    ray = normalize(random_bounce(hit, seed));
+    if (dot(hit.normal, ray) < 0) ray = -ray;
+    return (ray);
+}
+vec4 lambert_BRDF(vec3 normal, vec3 dir, vec4 color)
+{
+    // f_r = color / Pi
+    return (color / PI);
+}
+float lambert_PDF(vec3 normal, vec3 dir)
+{
+    // PDF = 1.0 / (2*PI)
+    return 1.0 / (2.0*PI);
+}
+
+// BLINN PHONG
+vec3 blinnphong_SAMPLE(s_hit hit, s_material mat, float seed)
+{
+    return (vec3(0.0));
+}
+vec4 blinnphong_BRDF(vec3 normal, vec3 dir, vec4 color)
+{
+    // f_r = color / Pi
+    return (vec4(0.0));
+}
+float blinnphong_PDF(vec3 normal, vec3 dir)
+{
+    // PDF = 1.0 / (2*PI)
+    return (0.0);
+}
+
+// COOK TORRANCE
+vec3 cooktorrance_SAMPLE(s_hit hit, s_material mat, float seed)
+{
+    return (vec3(0.0));
+}
+vec4 cooktorrance_BRDF(vec3 normal, vec3 dir, vec4 color)
+{
+    // f_r = color / Pi
+    return (vec4(0.0));
+}
+float cooktorrance_PDF(vec3 normal, vec3 dir)
+{
+    // PDF = 1.0 / (2*PI)
+    return (0.0);
 }
 
 vec4 ray_trace(s_ray ray)
@@ -223,20 +336,43 @@ vec4 ray_trace(s_ray ray)
             break;
         }
 
-        // RANDOM BOUNCE DIRECTION
-        ray.dir = normalize(random_bounce(hit, seed + b));
-        if (dot(hit.normal, ray.dir) < 0) ray.dir = -ray.dir;
+        float cos_theta = 0.0;
+        vec3 dir;
+        vec4 brdf_val;
+        float pdf_val;
+        // LMABERT
+        if (u_render_model == 0)
+        {
+            dir = lambert_SAMPLE(hit, u_shapes[hit.hit].mat, seed + b);
+            brdf_val = lambert_BRDF(hit.normal, dir, u_shapes[hit.hit].mat.color);
+            pdf_val = lambert_PDF(hit.normal, dir);
+        }
+        // BLINN PHONG
+        else if (u_render_model == 1)
+        {
+            dir = blinnphong_SAMPLE(hit, u_shapes[hit.hit].mat, seed + b);
+            brdf_val = blinnphong_BRDF(hit.normal, dir, u_shapes[hit.hit].mat.color);
+            pdf_val = blinnphong_PDF(hit.normal, dir);
+        }
+        // COOK TORRANCE
+        else if (u_render_model == 2)
+        {
+            dir = cooktorrance_SAMPLE(hit, u_shapes[hit.hit].mat, seed + b);
+            brdf_val = cooktorrance_BRDF(hit.normal, dir, u_shapes[hit.hit].mat.color);
+            pdf_val = cooktorrance_PDF(hit.normal, dir);
+        }
+
+
+        // COMPUTE COLOR ABSORTION
+        cos_theta = max(dot(hit.normal, dir), 0.0);
+        ray.dir = dir;
         ray.pos = hit.pos + hit.normal * 0.001;
 
-        // This hardcoded diffuse calculation asumes all objects are diffuse
-        //      - When using distributed ray bouncing each material will send rays to their
-        //      - most common angle of reflection/difraction
-        //      - diffuse will be calculated naturally
-        //  EXAMPLE: a mterial sending rays to a certain direction is more prone to have recieved the previous ray from a certain direction
-        //          so we will backtrace towards that more possible direction
-        float diffuse = max(dot(hit.normal, ray.dir), 0.0);
-        // COMPUTE COLOR (using new ray since we are backtracing)
-        m *= u_shapes[hit.hit].mat.color * diffuse;
+        // LEY UNIVERSAL DE MONTECARLO: m *= (BRDF * cos) / PDF
+        if (pdf_val > 0.001) // Evitar dividir por cero si el rayo sale mal
+            m *= (brdf_val * cos_theta) / pdf_val; 
+        else
+            break;
     }
     return (c);
 }

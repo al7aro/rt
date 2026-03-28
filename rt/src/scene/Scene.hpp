@@ -75,6 +75,23 @@ namespace rt {
             return (ret);
         }
 
+        /* QUAD FUNCTIONS */
+        unsigned int CreateQuad(const glm::vec3& a, const glm::vec3& b, const glm::vec3& c, const glm::vec3& d)
+        {
+            unsigned int ret = _shapes.size();
+            Shape shape;
+            shape.pos = a;
+            shape.type = 3;
+            shape.v0 = a;
+            shape.v1 = b;
+            shape.v2 = c;
+            shape.v3 = d;
+            shape.mat.color = glm::vec4(1.0);
+            shape.mat.emissive = 0.0;
+            _shapes.push_back(shape);
+            return (ret);
+        }
+
         const rt::Shape* GetData() const
         {
             return (_shapes.data());
