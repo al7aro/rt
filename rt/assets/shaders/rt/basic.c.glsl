@@ -12,13 +12,21 @@ struct s_camera
 };
 /* **************************** */
 /* ********* MATERIAL ********* */
+const int LAMBERTIAN = 0;
+const int SPECULAR = 1;
+const int BLINN_PHONG = 2;
+const int COOK_TORRANCE = 3;
 struct s_material
 {
     vec4 color;
     int emissive;
-    float p0;
-    float p1;
-    float p2;
+    float p0;   // BRDF model
+    float ks;   // ks componente especular
+    float kd;   // kd componente difusa
+    float m;    // m rugosidad
+    float eta;  // refracti
+    float p5;   //
+    float p6;   //
 };
 /* **************************** */
 /* ******* PRIMITIVES ********* */
@@ -71,6 +79,7 @@ const int SHAPE_POINT = 0;
 const int SHAPE_SPHERE = 1;
 const int SHAPE_PLANE = 2;
 const int SHAPE_QUAD = 3;
+const int SHAPE_BOX = 4;
 const vec4 AMBIENT_LIGHT_COLOR = vec4(0.1, 0.1, 0.1, 1.0);
 const int RAY_MAX_BOUNCES = 20;
 const int RAY_NO_HIT = -1;
@@ -81,7 +90,6 @@ uniform float u_t;
 uniform float u_S;
 uniform float u_N;
 uniform float u_K;
-uniform int u_render_model = 0;
 
 uniform float u_frame_cnt;
 uniform float u_time;
@@ -126,6 +134,13 @@ int is_point_in_trig(vec3 point, vec3 a, vec3 b, vec3 c)
     return (0);
 }
 
+s_hit intersect_box(s_ray ray, int s)
+{
+    s_hit hit;
+    hit.hit = RAY_NO_HIT;
+    return hit;
+}
+
 s_hit intersect_quad(s_ray ray, int s)
 {
     s_hit hit;
@@ -140,12 +155,12 @@ s_hit intersect_quad(s_ray ray, int s)
     vec3 c = u_shapes[s].v2;
     vec3 d = u_shapes[s].v3;
     vec3 p_co = u_shapes[s].pos;
-    vec3 p_no = normalize(cross(b-a, c-a));
+    vec3 p_no = normalize(cross(a-b, a-c));
 
     vec3 u = p1 - p0;
     float dotp = dot(p_no, u);
 
-    if (abs(dotp) >= 0.001) // RECTA Y PLANO -> PARALELOS
+    if (dotp < 0.001) // RECTA Y PLANO -> PARALELOS
     {
         vec3 w = p0 - p_co;
         float fac = -dot(p_no, w) / dotp;
@@ -246,6 +261,8 @@ s_hit intersect_scene(s_ray ray, int ignore)
             current_hit = intersect_plane(ray, s);
         else if (u_shapes[s].type == SHAPE_QUAD)
             current_hit = intersect_quad(ray, s);
+        else if (u_shapes[s].type == SHAPE_BOX)
+            current_hit = intersect_box(ray, s);
         // Check if this hit is closer than the previous one
         if (current_hit.hit != RAY_NO_HIT && current_hit.dist < closest_hit.dist)
             closest_hit = current_hit;
@@ -259,54 +276,120 @@ vec3 random_bounce(s_hit hit, float seed)
 }
 
 // LAMBERT
-vec3 lambert_SAMPLE(s_hit hit, s_material mat, float seed)
+vec3 lambert_SAMPLE(s_hit hit, float seed)
 {
     vec3 ray;
     ray = normalize(random_bounce(hit, seed));
     if (dot(hit.normal, ray) < 0) ray = -ray;
     return (ray);
 }
-vec4 lambert_BRDF(vec3 normal, vec3 dir, vec4 color)
+vec4 lambert_BRDF(s_hit hit, vec3 new_dir)
 {
     // f_r = color / Pi
-    return (color / PI);
+    vec4 albedo = u_shapes[hit.hit].mat.color;
+    return (albedo / PI);
 }
-float lambert_PDF(vec3 normal, vec3 dir)
+float lambert_PDF(s_hit hit)
 {
     // PDF = 1.0 / (2*PI)
     return 1.0 / (2.0*PI);
 }
 
+// SPECULAR
+vec3 specular_SAMPLE(s_hit hit, float seed)
+{
+    vec3 ray;
+    ray = reflect(hit.ray.dir, hit.normal);
+    return (ray);
+}
+vec4 specular_BRDF(s_hit hit, vec3 new_dir)
+{
+    vec3 normal = hit.normal;
+    vec3 dir = new_dir;
+    vec4 albedo = u_shapes[hit.hit].mat.color;
+    return (albedo / (dot(normal, dir)));
+}
+float specular_PDF(s_hit hit)
+{
+    // PDF = 1.0
+    return 1.0;
+}
+
 // BLINN PHONG
-vec3 blinnphong_SAMPLE(s_hit hit, s_material mat, float seed)
+vec3 blinnphong_SAMPLE(s_hit hit, float seed)
 {
-    return (vec3(0.0));
+    // Lanzo rayos al azar uniformemente en el hemisferio superior
+    vec3 ray;
+    ray = normalize(random_bounce(hit, seed));
+    if (dot(hit.normal, ray) < 0) ray = -ray;
+    return (ray);
 }
-vec4 blinnphong_BRDF(vec3 normal, vec3 dir, vec4 color)
+vec4 blinnphong_BRDF(s_hit hit, vec3 new_dir)
 {
-    // f_r = color / Pi
-    return (vec4(0.0));
+    s_material mat = u_shapes[hit.hit].mat;
+    vec4 albedo = mat.color;
+    vec3 n = hit.normal;
+    vec3 h = normalize(new_dir - hit.ray.dir);
+    float dotNH = max(dot(n, h), 0.0);
+
+// TODO: ANADIR ESTO AL MATERIAL DESDE EL LADO DE C++
+    float m = mat.m;  // RUGOSIDAD                -   DEPDENDE DEL MATERIAL
+    float kd = mat.kd;     // COMPONENTE DE DIFUSA     -   DEPDENDE DEL MATERIAL
+    float ks = mat.ks;     // COMPONENTE DE ESPECULAR  -   DEPDENDE DEL MATERIAL
+
+    float diffuse = kd/PI;
+    float specular = ks * ((m+2) / (2*PI)) * pow(dotNH, m);
+
+    return albedo*(diffuse + specular);
 }
-float blinnphong_PDF(vec3 normal, vec3 dir)
+float blinnphong_PDF(s_hit hit)
 {
-    // PDF = 1.0 / (2*PI)
-    return (0.0);
+    return 1.0 / (2.0*PI);
 }
 
 // COOK TORRANCE
-vec3 cooktorrance_SAMPLE(s_hit hit, s_material mat, float seed)
+vec3 cooktorrance_SAMPLE(s_hit hit, float seed)
 {
-    return (vec3(0.0));
+    // Lanzo rayos al azar uniformemente en el hemisferio superior
+    vec3 ray;
+    ray = normalize(random_bounce(hit, seed));
+    if (dot(hit.normal, ray) < 0) ray = -ray;
+    return (ray);
 }
-vec4 cooktorrance_BRDF(vec3 normal, vec3 dir, vec4 color)
+vec4 cooktorrance_BRDF(s_hit hit, vec3 new_dir)
 {
-    // f_r = color / Pi
-    return (vec4(0.0));
+    s_material mat = u_shapes[hit.hit].mat;
+    vec4 albedo = mat.color;
+    float m = mat.m;      // RUGOSIDAD                -   DEPDENDE DEL MATERIAL
+    float eta = mat.eta;     // REF. INDEX               -   DEPDENDE DEL MATERIAL
+    float kd = mat.kd;    // COMPONENTE DE DIFUSA     -   DEPDENDE DEL MATERIAL
+    float ks = mat.ks;    // COMPONENTE DE ESPECULAR  -   DEPDENDE DEL MATERIAL
+
+    vec3 omega_i = normalize(new_dir);
+    vec3 omega_r = normalize(-hit.ray.dir);
+    vec3 n = hit.normal;
+    vec3 h = normalize(omega_i + omega_r);
+    float dotNH = max(dot(n, h), 0.0001);
+    float dotNR = max(dot(n, omega_r), 0.0001);
+    float dotNI = max(dot(n, omega_i), 0.0001);
+    float dotRH = max(dot(omega_r, h), 0.0001);
+    float alpha = acos(clamp(dotNH, 0.0001, 0.9999));
+    float c = dotRH;
+    float g = sqrt(pow(eta, 2) + pow(c, 2) - 1);
+
+    float D = 1.0/(pow(m, 2)*pow(dotNH, 4)) * exp(-pow(tan(alpha) / m, 2));
+    float G = min(min(1, (2*dotNH*dotNR/dotRH)), (2*dotNH*dotNI/dotRH));
+    float F = (pow(g-c,2)/(2*pow(g+c,2))) * (1 + pow(c*(g+c)-1, 2)/pow(c*(g-c)+1, 2));
+
+    float diffuse = kd/PI;
+    float specular = ks * (F*D*G)/(PI*dotNR*dotNI);
+
+    return (albedo*(diffuse + specular));
 }
-float cooktorrance_PDF(vec3 normal, vec3 dir)
+float cooktorrance_PDF(s_hit hit)
 {
     // PDF = 1.0 / (2*PI)
-    return (0.0);
+    return 1.0 / (2.0*PI);
 }
 
 vec4 ray_trace(s_ray ray)
@@ -337,35 +420,41 @@ vec4 ray_trace(s_ray ray)
         }
 
         float cos_theta = 0.0;
-        vec3 dir;
+        vec3 new_dir;
         vec4 brdf_val;
         float pdf_val;
         // LMABERT
-        if (u_render_model == 0)
+        if (int(u_shapes[hit.hit].mat.p0) == LAMBERTIAN)
         {
-            dir = lambert_SAMPLE(hit, u_shapes[hit.hit].mat, seed + b);
-            brdf_val = lambert_BRDF(hit.normal, dir, u_shapes[hit.hit].mat.color);
-            pdf_val = lambert_PDF(hit.normal, dir);
+            new_dir = lambert_SAMPLE(hit, seed + b);
+            brdf_val = lambert_BRDF(hit, new_dir);
+            pdf_val = lambert_PDF(hit);
+        }
+        if (int(u_shapes[hit.hit].mat.p0) == SPECULAR)
+        {
+            new_dir = specular_SAMPLE(hit, seed + b);
+            brdf_val = specular_BRDF(hit, new_dir);
+            pdf_val = specular_PDF(hit);
         }
         // BLINN PHONG
-        else if (u_render_model == 1)
+        else if (int(u_shapes[hit.hit].mat.p0) == BLINN_PHONG)
         {
-            dir = blinnphong_SAMPLE(hit, u_shapes[hit.hit].mat, seed + b);
-            brdf_val = blinnphong_BRDF(hit.normal, dir, u_shapes[hit.hit].mat.color);
-            pdf_val = blinnphong_PDF(hit.normal, dir);
+            new_dir = blinnphong_SAMPLE(hit, seed + b);
+            brdf_val = blinnphong_BRDF(hit, new_dir);
+            pdf_val = blinnphong_PDF(hit);
         }
         // COOK TORRANCE
-        else if (u_render_model == 2)
+        else if (int(u_shapes[hit.hit].mat.p0) == COOK_TORRANCE)
         {
-            dir = cooktorrance_SAMPLE(hit, u_shapes[hit.hit].mat, seed + b);
-            brdf_val = cooktorrance_BRDF(hit.normal, dir, u_shapes[hit.hit].mat.color);
-            pdf_val = cooktorrance_PDF(hit.normal, dir);
+            new_dir = cooktorrance_SAMPLE(hit, seed + b);
+            brdf_val = cooktorrance_BRDF(hit, new_dir);
+            pdf_val = cooktorrance_PDF(hit);
         }
 
 
         // COMPUTE COLOR ABSORTION
-        cos_theta = max(dot(hit.normal, dir), 0.0);
-        ray.dir = dir;
+        cos_theta = max(dot(hit.normal, new_dir), 0.0);
+        ray.dir = new_dir;
         ray.pos = hit.pos + hit.normal * 0.001;
 
         // LEY UNIVERSAL DE MONTECARLO: m *= (BRDF * cos) / PDF

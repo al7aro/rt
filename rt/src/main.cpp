@@ -44,18 +44,10 @@ int main(void)
     bool updated_scene = 0;
     rt::Timer calculation_timer;
 
-    float EXPOSURE_T = 0.5;
+    float EXPOSURE_T = 2.;
     float ISO = 200;
+    float APERTURE = 3.0;
     float SENSOR_K = 12.5;
-    float APERTURE = 4.5;
-    enum RenderModel
-    {
-        LAMBERT = 0,
-        BLINN_PHONG = 1,
-        COOK_TORRANCE = 2
-    };
-    char RENDER_MODEL_STR[] = "Lambert\0Blinn-Phong\0Cook-Torrance\0";
-    int RENDER_MODEL = RenderModel::LAMBERT;
 
     rt::Scene scene;
     setup_scene(scene);
@@ -104,7 +96,6 @@ int main(void)
         updated_scene |= ImGui::SliderFloat("ISO", &ISO, 0.0, 1000.0);
         updated_scene |= ImGui::SliderFloat("Aperture", &APERTURE, 0.0, 50.0);
         updated_scene |= ImGui::SliderFloat("Sensor Constant", &SENSOR_K, 0.0, 100.0);
-        updated_scene |= ImGui::Combo("Render Model", &RENDER_MODEL, RENDER_MODEL_STR);
         ImGui::Checkbox("Enable Input", &enable_input);
         if (ImGui::Button("Export"))
             export_image(c_sh.GetDisplayTextureId(), c_sh.GetWidth(), c_sh.GetHeight(),
@@ -124,7 +115,6 @@ int main(void)
         c_sh.SetUniform("u_S", ISO);
         c_sh.SetUniform("u_K", SENSOR_K);
         c_sh.SetUniform("u_N", APERTURE);
-        c_sh.SetUniform("u_render_model", RENDER_MODEL);
 
         c_sh.WaitFinished();
         canvas.Render(c_sh.GetDisplayTextureId(), rt::ComputeShader::DISPLAY_TEXTURE);
@@ -170,34 +160,26 @@ void export_image(unsigned int id, int w, int h, const std::string& path)
 
 void setup_scene(rt::Scene& scene)
 {
-    // int sph0 = scene.CreateSphere(glm::vec3(0.0, -0.5, -3.0), 0.5);
-    // scene.SetColor(sph0, glm::vec4(0.0, 0.0, 1.0, 1.0));
-    // int sph1 = scene.CreateSphere(glm::vec3(0.0, -10.5, -3.0), 9.5);
-    // scene.SetColor(sph1, glm::vec4(0.0, 1.0, 0.0, 1.0));
-    int sph0 = scene.CreateSphere(glm::vec3(-1.25, 1.25, 0.0), 0.5);
-    scene.SetColor(sph0, glm::vec4(0.0, 0.0, 1.0, 1.0));
+    // int sph0 = scene.CreateSphere(glm::vec3(-1.25, 1.25, 0.0), 0.5);
+    // scene.SetColor(sph0, glm::vec4(0.9, 0.9, 0.9, 1.0));
+    // scene.SetModel(sph0, rt::Material::BRDFModel::SPECULAR);
+    std::vector<unsigned int> b0 = scene.CreateBox(glm::vec3(-1.0, 1.0, 0.0), 0.5, 0.5, 0.5, glm::vec3(3.14/4.0));
+    scene.SetColor(b0, glm::vec4(0.8, 0.0, 0.0, 1.0));
+    scene.SetModel(b0, rt::Material::BRDFModel::LAMBERTIAN);
+
+    
     int sph1 = scene.CreateSphere(glm::vec3(0.0, 0.0, 0.0), 1.0);
     scene.SetColor(sph1, glm::vec4(0.0, 1.0, 0.0, 1.0));
+    scene.SetModel(sph1, rt::Material::BRDFModel::BLINN_PHONG);
+    
     int sph2 = scene.CreateSphere(glm::vec3(1.25, 1.25, 0.0), 0.5);
-    scene.SetColor(sph2, glm::vec4(1.0, 0.0, 0.0, 1.0));
+    scene.SetColor(sph2, glm::vec4(0.8, 0.8, 0.8, 1.0));
+    scene.SetModel(sph2, rt::Material::BRDFModel::BLINN_PHONG);
+    
+    // LIGHT SOURCE
     int sph3 = scene.CreateSphere(glm::vec3(0.0, 2, 0.0), 0.25);
     scene.SetColor(sph3, glm::vec4(glm::vec3(10.0), 1.0));
     scene.SetEmissive(sph3, 1.0);
-    // /* INFINITE PLANE BOTTOM */
-    // int pl0 = scene.CreatePlane(glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
-    // scene.SetColor(pl0, glm::vec4(1.0));
-    // // /* INFINITE PLANE TOP */
-    // int pl1 = scene.CreatePlane(glm::vec3(0.0, 5.0, 0.0), glm::vec3(0.0, -1.0, 0.0));
-    // scene.SetColor(pl1, glm::vec4(1.0));
-    // /* INFINITE PLANE LEFT */
-    // int pl2 = scene.CreatePlane(glm::vec3(-5.0, 0.0, 0.0), glm::vec3(1.0, 0.0, 0.0));
-    // scene.SetColor(pl2, glm::vec4(1.0));
-    // /* INFINITE PLANE RIGHT */
-    // int pl3 = scene.CreatePlane(glm::vec3(5.0, 0.0, 0.0), glm::vec3(-1.0, 0.0, 0.0));
-    // scene.SetColor(pl3, glm::vec4(1.0));
-    // /* INFINITE PLANE BACK */
-    // int pl4 = scene.CreatePlane(glm::vec3(0.0, 0.0, -10.0), glm::vec3(0.0, 0.0, 1.0));
-    // scene.SetColor(pl4, glm::vec4(1.0));
 
     int q_bot = scene.CreateQuad(
         glm::vec3(2.0, -2.0, -2.0),
@@ -205,30 +187,35 @@ void setup_scene(rt::Scene& scene)
         glm::vec3(-2.0, -2.0, 2.0),
         glm::vec3(2.0, -2.0, 2.0)
     );
+    scene.SetColor(q_bot, glm::vec4(0.5, 0.5, 0.5, 1.0));
     int q_top = scene.CreateQuad(
         glm::vec3(-2.0, 2.0, -2.0),
         glm::vec3(2.0, 2.0, -2.0),
         glm::vec3(2.0, 2.0, 2.0),
         glm::vec3(-2.0, 2.0, 2.0)
     );
+    scene.SetColor(q_top, glm::vec4(0.5, 0.5, 0.5, 1.0));
     int q_back = scene.CreateQuad(
         glm::vec3(-2.0, -2.0, -2.0),
         glm::vec3(2.0, -2.0, -2.0),
         glm::vec3(2.0, 2.0, -2.0),
         glm::vec3(-2.0, 2.0, -2.0)
     );
+    scene.SetColor(q_back, glm::vec4(0.5, 0.5, 0.5, 1.0));
     int q_left = scene.CreateQuad(
         glm::vec3(-2.0, -2.0, -2.0),
         glm::vec3(-2.0, 2.0, -2.0),
         glm::vec3(-2.0, 2.0, 2.0),
         glm::vec3(-2.0, -2.0, 2.0)
     );
+    scene.SetColor(q_left, glm::vec4(0.5, 0.5, 0.5, 1.0));
     int q_right = scene.CreateQuad(
         glm::vec3(2.0, 2.0, -2.0),
         glm::vec3(2.0, -2.0, -2.0),
         glm::vec3(2.0, -2.0, 2.0),
         glm::vec3(2.0, 2.0, 2.0)
     );
+    scene.SetColor(q_right, glm::vec4(0.5, 0.5, 0.5, 1.0));
 }
 
 bool update_camera(rt::Window& win, rt::Camera& cam, rt::KeyHandler& wasd, rt::MouseHandler& mouse, float delta_time)
