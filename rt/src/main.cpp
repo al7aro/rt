@@ -26,7 +26,10 @@ std::string image_filename(float t, float exp, float iso, float k, float n);
 
 int main(void)
 {
-    rt::Window win("rt", 900, 900);
+    int WIDTH = 900;
+    int HEIGHT = 900;
+
+    rt::Window win("rt", WIDTH, HEIGHT);
     auto wasd = std::make_shared<rt::KeyHandler>(std::vector<int>({ GLFW_KEY_U, GLFW_KEY_W, GLFW_KEY_A, GLFW_KEY_S, GLFW_KEY_D, GLFW_KEY_SPACE, GLFW_KEY_LEFT_SHIFT, GLFW_KEY_ENTER }));
     auto mouse = std::make_shared<rt::MouseHandler>(std::vector<int>({GLFW_MOUSE_BUTTON_RIGHT, GLFW_MOUSE_BUTTON_LEFT}));
     win.AddListenTo(wasd);
@@ -36,8 +39,9 @@ int main(void)
     bool enable_input = false;
 
     rt::Canvas canvas;
-    rt::ComputeShader c_sh(ASSETS_DIRECTORY"/shaders/rt/basic.c.glsl", 900, 900);
+    rt::ComputeShader c_sh(ASSETS_DIRECTORY"/shaders/rt/basic.c.glsl", WIDTH, HEIGHT);
     rt::Camera camera;
+    camera.SetAspect(float(WIDTH)/float(HEIGHT));
     camera.SetPosition(glm::vec3(0.0, 0.0, 4.25));
 
     /* CREATE SCENE */
@@ -169,8 +173,8 @@ void setup_scene(rt::Scene& scene)
 
     
     int sph1 = scene.CreateSphere(glm::vec3(0.0, 0.0, 0.0), 1.0);
-    scene.SetColor(sph1, glm::vec4(0.0, 1.0, 0.0, 1.0));
-    scene.SetModel(sph1, rt::Material::BRDFModel::BLINN_PHONG);
+    scene.SetColor(sph1, glm::vec4(0.75, 0.75, 0.90, 1.0));
+    scene.SetModel(sph1, rt::Material::BRDFModel::SPECULAR);
     
     int sph2 = scene.CreateSphere(glm::vec3(1.25, 1.25, 0.0), 0.5);
     scene.SetColor(sph2, glm::vec4(0.8, 0.8, 0.8, 1.0));
