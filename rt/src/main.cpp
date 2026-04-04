@@ -52,6 +52,7 @@ int main(void)
     char file_name[512] = "filename\0";
     bool exporting = true;
     bool importance_sampling = true;
+    bool mean_color_export = true;
 
     rt::Canvas canvas;
     rt::ComputeShader c_sh(ASSETS_DIRECTORY"/shaders/rt/basic.c.glsl", WIDTH, HEIGHT);
@@ -118,25 +119,23 @@ int main(void)
         ImGui::SliderFloat("ISO", &ISO, 0.0, 1000.0);
         ImGui::SliderFloat("Aperture", &APERTURE, 0.0, 50.0);
         ImGui::SliderFloat("Sensor Constant", &SENSOR_K, 0.0, 100.0);
-        ImGui::Checkbox("Enable Input", &enable_input);
+        ImGui::Checkbox("Input", &enable_input);
         ImGui::SameLine();
-        ImGui::Checkbox("Enable Importance Sampling", &importance_sampling);
+        ImGui::Checkbox("Importance Sampling", &importance_sampling);
         ImGui::Checkbox("Display Variance", &display_mode);
+        ImGui::SameLine();
+        ImGui::Checkbox("Export mean color", &mean_color_export);
         display_texture = c_sh.GetDisplayTextureId();
         if (display_mode)
             display_texture = c_sh.GetVarianceTextureId();
         ImGui::PushItemWidth(100);
-        ImGui::InputText("File_Name", file_name, 16);
-        ImGui::SameLine();
-        if (ImGui::Button("Export"))
-            export_image(display_texture, c_sh.GetWidth(), c_sh.GetHeight(),
-                RT_DIRECTORY"/renders/" + std::string(file_name)  + "_" + image_filename(calculation_timer.EllapsedSeconds(), EXPOSURE_T, ISO, APERTURE, SENSOR_K));
+        ImGui::InputText(":", file_name, 16);
         ImGui::SameLine();
         if (!exporting)
         {
             variance_data.clear();
             mean_color_data.clear();
-            if (ImGui::Button("Start Variance Export"))
+            if (ImGui::Button("Start Data Export"))
             {
                 exporting = !exporting;
                 export_start = win.GetFrameCount();
@@ -147,22 +146,27 @@ int main(void)
             if (!(win.GetFrameCount() % 10)) // one sample every 5 frames
             {
                 variance_data.push_back(std::make_pair((float)win.GetFrameCount(), get_variance(c_sh.GetVarianceTextureId(), c_sh.GetWidth(), c_sh.GetHeight())));
-                mean_color_data.push_back(std::make_pair((float)win.GetFrameCount(), get_mean_color(c_sh.GetDisplayTextureId(), c_sh.GetWidth(), c_sh.GetHeight(), 10)));
+                if (mean_color_export)
+                    mean_color_data.push_back(std::make_pair((float)win.GetFrameCount(), get_mean_color(c_sh.GetDisplayTextureId(), c_sh.GetWidth(), c_sh.GetHeight(), 10)));
             }
-            if (ImGui::Button("End Variance Export"))
+            if (ImGui::Button("End Data Export"))
             {
                 export_end = win.GetFrameCount();
-                export_data(variance_data,
-                    RT_DIRECTORY"/renders/variance/" + std::string(file_name)  + "_t" + std::to_string(export_start) +  "_" + std::to_string(export_end) + ".csv");
-                export_data(mean_color_data,
-                    RT_DIRECTORY"/renders/mean_color/" + std::string(file_name)  + "_t" + std::to_string(export_start) +  "_" + std::to_string(export_end) + ".csv");
+                export_data(variance_data, RT_DIRECTORY"/renders/variance/" + std::string(file_name)  + "_t" + std::to_string(export_start) +  "_" + std::to_string(export_end) + ".csv");
+                if (mean_color_export)
+                    export_data(mean_color_data, RT_DIRECTORY"/renders/mean_color/" + std::string(file_name)  + "_t" + std::to_string(export_start) +  "_" + std::to_string(export_end) + ".csv");
                 exporting = !exporting;
                 export_start = 0;
                 export_end = 0;
             }
         }
         ImGui::SameLine();
+        if (ImGui::Button("Render"))
+            export_image(display_texture, c_sh.GetWidth(), c_sh.GetHeight(),
+                RT_DIRECTORY"/renders/" + std::string(file_name)  + "_" + image_filename(calculation_timer.EllapsedSeconds(), EXPOSURE_T, ISO, APERTURE, SENSOR_K));
+        ImGui::SameLine();
         updated_scene |= ImGui::Button("Reload");
+
         ImGui::End();
 
         /* VARIANCE DATA EXPORT */
