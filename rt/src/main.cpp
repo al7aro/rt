@@ -177,14 +177,14 @@ int main(void)
         c_sh.SetUniform("u_time", (float)timer.EllapsedSeconds());
         c_sh.SetUniform("u_rand", static_cast<float>(rand())/static_cast<float>(RAND_MAX));
         c_sh.SetUniform("u_frame_cnt", (float)win.GetFrameCount());
-        c_sh.SetUniform("u_t", EXPOSURE_T);
-        c_sh.SetUniform("u_S", ISO);
-        c_sh.SetUniform("u_K", SENSOR_K);
-        c_sh.SetUniform("u_N", APERTURE);
         c_sh.SetUniform("u_ambient_light_color", scene.GetAmbientColor());
         c_sh.SetUniform("u_importance_sampling", float(importance_sampling));
 
         c_sh.WaitFinished();
+        canvas.SetUniform("u_t", EXPOSURE_T);
+        canvas.SetUniform("u_S", ISO);
+        canvas.SetUniform("u_K", SENSOR_K);
+        canvas.SetUniform("u_N", APERTURE);
         canvas.Render(display_texture, rt::ComputeShader::DISPLAY_TEXTURE);
 
 /* ********** IMGUI RENDER ********** */

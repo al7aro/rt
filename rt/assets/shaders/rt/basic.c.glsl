@@ -86,11 +86,6 @@ const int MAX_SHAPES = 10;
 const float PI = 3.1415926;
 const float EPSILON = 0.001;
 
-uniform float u_t;
-uniform float u_S;
-uniform float u_N;
-uniform float u_K;
-
 // 0 -> DISPLAY SCENE | 1 -> DISPLAY VARIANCE
 uniform float u_importance_sampling = 1;
 uniform vec4 u_ambient_light_color = vec4(0.1, 0.1, 0.1, 1.0);;
@@ -687,12 +682,9 @@ void main()
     imageStore(u_sum2, texel_coord, new_sum2);
 
     // DISPLAY SCENE
-    float hdr_scale = (u_S * u_t) / (u_N * u_N * u_K);
-    // new_mean.rgb = new_mean.rgb * hdr_scale;
     imageStore(u_img_display, texel_coord, new_mean);
     // DISPLAY VARIANCE
     vec4 tmp = max(vec4(0.0), new_sum2 - (new_mean*new_mean));
     float variance = (tmp.x + tmp.y + tmp.z)/(3.0 * u_frame_cnt);
-    // variance *= hdr_scale;
     imageStore(u_variance, texel_coord, vec4(variance));
 }
