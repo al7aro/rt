@@ -80,25 +80,30 @@ const int SHAPE_SPHERE = 1;
 const int SHAPE_PLANE = 2;
 const int SHAPE_QUAD = 3;
 const int SHAPE_BOX = 4;
-const vec4 AMBIENT_LIGHT_COLOR = vec4(0.1, 0.1, 0.1, 1.0);
 const int RAY_MAX_BOUNCES = 20;
 const int RAY_NO_HIT = -1;
 const int MAX_SHAPES = 10;
 const float PI = 3.1415926;
+const float EPSILON = 0.001;
 
 uniform float u_t;
 uniform float u_S;
 uniform float u_N;
 uniform float u_K;
 
+// 0 -> DISPLAY SCENE | 1 -> DISPLAY VARIANCE
+uniform float u_importance_sampling = 1;
+uniform vec4 u_ambient_light_color = vec4(0.1, 0.1, 0.1, 1.0);;
 uniform float u_frame_cnt;
 uniform float u_time;
 uniform float u_rand;
 uniform s_camera cam;
 uniform int u_shape_cnt;
 layout(rgba32f, binding = 0) uniform image2D u_img_display;
-layout(rgba32f, binding = 1) uniform image2D u_img_accumulated;
-layout (std140, binding = 2) uniform u_scene
+layout(rgba32f, binding = 1) uniform image2D u_mean;
+layout(rgba32f, binding = 2) uniform image2D u_sum2;
+layout(rgba32f, binding = 3) uniform image2D u_variance;
+layout (std140, binding = 5) uniform u_scene
 {
     s_shape u_shapes[MAX_SHAPES];
 };
@@ -112,7 +117,7 @@ float random(float seed)
 vec3 random_vector(float seed)
 {
     float z = random(seed) * 2.0 - 1.0;          // Range -1 to 1
-    float a = random(seed + 0.123) * 6.283185;   // Range 0 to 2*PI
+    float a = random(seed * 1.343 + 42.123) * 6.283185;   // Range 0 to 2*PI
     float r = sqrt(1.0 - z * z);
     return vec3(r * cos(a), r * sin(a), z);
 }
@@ -160,7 +165,7 @@ s_hit intersect_quad(s_ray ray, int s)
     vec3 u = p1 - p0;
     float dotp = dot(p_no, u);
 
-    if (dotp < 0.001) // RECTA Y PLANO -> PARALELOS
+    if (dotp < EPSILON) // RECTA Y PLANO -> PARALELOS
     {
         vec3 w = p0 - p_co;
         float fac = -dot(p_no, w) / dotp;
@@ -198,7 +203,7 @@ s_hit intersect_plane(s_ray ray, int s)
     vec3 u = p1 - p0;
     float dotp = dot(p_no, u);
 
-    if (abs(dotp) >= 0.001) // RECTA Y PLANO -> PARALELOS
+    if (abs(dotp) >= EPSILON) // RECTA Y PLANO -> PARALELOS
     {
         vec3 w = p0 - p_co;
         float fac = -dot(p_no, w) / dotp;
@@ -232,7 +237,7 @@ s_hit intersect_sphere(s_ray ray, int s)
         float t = -b - sqrt(discriminant);
         
         // If t is negative, the hit is behind the camera, so we ignore it
-        if (t > 0.001) 
+        if (t > EPSILON) 
         {
             hit.dist = t;
             hit.pos = ray.pos + t * ray.dir;
@@ -279,8 +284,23 @@ vec3 random_bounce(s_hit hit, float seed)
 vec3 lambert_SAMPLE(s_hit hit, float seed)
 {
     vec3 ray;
-    ray = normalize(random_bounce(hit, seed));
-    if (dot(hit.normal, ray) < 0) ray = -ray;
+    if (int(u_importance_sampling) == 0)
+    {
+        ray = normalize(random_bounce(hit, seed));
+        if (dot(hit.normal, ray) < 0) ray = -ray;
+    }
+    else if (int(u_importance_sampling) == 1)
+    {
+        float u = random(seed); 
+        float v = random(seed + 1.343 + 42.123);
+        float phi = 2.0 * PI * u;
+        float r = sqrt(v);
+        vec3 local_ray = vec3(r * cos(phi), r * sin(phi), sqrt(1.0 - v));
+        vec3 helper = abs(hit.normal.x) > 0.9 ? vec3(0, 1, 0) : vec3(1, 0, 0);
+        vec3 tangent = normalize(cross(helper, hit.normal));
+        vec3 bitangent = cross(hit.normal, tangent);
+        ray = tangent * local_ray.x + bitangent * local_ray.y + hit.normal * local_ray.z;
+    }
     return (ray);
 }
 vec4 lambert_BRDF(s_hit hit, vec3 new_dir)
@@ -289,10 +309,20 @@ vec4 lambert_BRDF(s_hit hit, vec3 new_dir)
     vec4 albedo = u_shapes[hit.hit].mat.color;
     return (albedo / PI);
 }
-float lambert_PDF(s_hit hit)
+float lambert_PDF(s_hit hit, vec3 new_dir)
 {
+    float ret;
+    if (int(u_importance_sampling) == 0)
+    {
+        ret = 1.0 / (2.0*PI);
+    }
     // PDF = 1.0 / (2*PI)
-    return 1.0 / (2.0*PI);
+    else if (int(u_importance_sampling) == 1)
+    {
+        float cos_theta = max(dot(hit.normal, new_dir), 0.0);
+        ret = cos_theta / PI;
+    }
+    return (ret);
 }
 
 // SPECULAR
@@ -307,6 +337,9 @@ vec4 specular_BRDF(s_hit hit, vec3 new_dir)
     vec3 normal = hit.normal;
     vec3 dir = new_dir;
     vec4 albedo = u_shapes[hit.hit].mat.color;
+    float cos_theta = max(dot(hit.normal, new_dir), 0.0);
+    if (cos_theta <= 0.0) 
+        return (vec4(0.0));
     return (albedo / (dot(normal, dir)));
 }
 float specular_PDF(s_hit hit)
@@ -320,31 +353,86 @@ vec3 blinnphong_SAMPLE(s_hit hit, float seed)
 {
     // Lanzo rayos al azar uniformemente en el hemisferio superior
     vec3 ray;
-    ray = normalize(random_bounce(hit, seed));
-    if (dot(hit.normal, ray) < 0) ray = -ray;
+    if (int(u_importance_sampling) == 0)
+    {
+        ray = normalize(random_bounce(hit, seed));
+        if (dot(hit.normal, ray) < 0) ray = -ray;
+    }
+    else if (int(u_importance_sampling) == 1)
+    {
+        float shininess = max(u_shapes[hit.hit].mat.m, EPSILON);
+        vec3 view_dir = -hit.ray.dir;
+
+        float u = random(seed); 
+        float v = random(seed +  + 1.343 + 42.123); // Recuerda usar un offset caótico
+        // 1. Calcular coordenadas esféricas del Half-Vector
+        float phi = 2.0 * PI * u;
+        float cos_theta = pow(v, 1.0 / (shininess + 1.0));
+        float sin_theta = sqrt(1.0 - cos_theta * cos_theta); // Identidad trigonométrica
+        // 2. Convertir a coordenadas cartesianas (Espacio Tangente)
+        vec3 H_local = vec3(
+            sin_theta * cos(phi),
+            sin_theta * sin(phi),
+            cos_theta
+        );
+        // 3. Pasar el Half-Vector del espacio tangente al espacio del mundo
+        vec3 helper = abs(hit.normal.x) > 0.9 ? vec3(0, 1, 0) : vec3(1, 0, 0);
+        vec3 tangent = normalize(cross(helper, hit.normal));
+        vec3 bitangent = cross(hit.normal, tangent);
+        vec3 H_world = normalize(tangent * H_local.x + bitangent * H_local.y + hit.normal * H_local.z);
+        // 4. Calcular el rayo saliente (L) reflejando el rayo de vista usando el Half-Vector
+        // view_dir debe apuntar DESDE la superficie HACIA la cámara/rayo anterior
+        ray = reflect(-view_dir, H_world);
+    }
     return (ray);
 }
 vec4 blinnphong_BRDF(s_hit hit, vec3 new_dir)
 {
+    vec3 omega_i = normalize(new_dir);
+    vec3 omega_r = normalize(-hit.ray.dir);
+    vec3 n = hit.normal;
+    // if (dot(n, omega_i) <= 0.0 || dot(n, omega_r) <= -0.01)
+    //     return vec4(0.0, 0.0, 0.0, 1.0);
+
     s_material mat = u_shapes[hit.hit].mat;
     vec4 albedo = mat.color;
-    vec3 n = hit.normal;
-    vec3 h = normalize(new_dir - hit.ray.dir);
-    float dotNH = max(dot(n, h), 0.0);
+    float m = max(mat.m, EPSILON);     // RUGOSIDAD                -   DEPDENDE DEL MATERIAL
+    float kd = mat.kd;                      // COMPONENTE DE DIFUSA     -   DEPDENDE DEL MATERIAL
+    float ks = mat.ks;                      // COMPONENTE DE ESPECULAR  -   DEPDENDE DEL MATERIAL
 
-// TODO: ANADIR ESTO AL MATERIAL DESDE EL LADO DE C++
-    float m = mat.m;  // RUGOSIDAD                -   DEPDENDE DEL MATERIAL
-    float kd = mat.kd;     // COMPONENTE DE DIFUSA     -   DEPDENDE DEL MATERIAL
-    float ks = mat.ks;     // COMPONENTE DE ESPECULAR  -   DEPDENDE DEL MATERIAL
+    vec3 h_vec = omega_i + omega_r;
+    vec3 h = length(h_vec) > EPSILON ? normalize(h_vec) : n;
+    float dotNH = max(dot(n, h), EPSILON);
 
     float diffuse = kd/PI;
-    float specular = ks * ((m+2) / (2*PI)) * pow(dotNH, m);
+    float specular = ks * ((m+2.0) / (2.0*PI)) * pow(dotNH, m);
 
     return albedo*(diffuse + specular);
 }
-float blinnphong_PDF(s_hit hit)
+float blinnphong_PDF(s_hit hit, vec3 new_dir)
 {
-    return 1.0 / (2.0*PI);
+    float ret;
+    if (int(u_importance_sampling) == 0)
+    {
+        ret = 1.0 / (2.0*PI);
+    }
+    else if (int(u_importance_sampling) == 1)
+    {
+        vec3 view_dir = -hit.ray.dir;
+        float shininess = max(u_shapes[hit.hit].mat.m, EPSILON);
+        // 1. Reconstruimos el Half-Vector que debió usarse para generar new_dir
+        vec3 H = normalize(view_dir + new_dir);
+        float cos_theta = max(dot(hit.normal, H), 0.0);
+        float V_dot_H   = max(dot(view_dir, H), 0.0);
+        // Evitar divisiones por cero o reflejos inválidos (rayos bajo la superficie)
+        if (cos_theta <= 0.0 || V_dot_H <= 0.0 || dot(hit.normal, new_dir) <= 0.0)
+            return 0.0; 
+        // 2. PDF del Half-Vector
+        float pdf_H = ((shininess + 1.0) / (2.0 * PI)) * pow(cos_theta, shininess);
+        // 3. Convertir la PDF al dominio del rayo reflejado (Jacobiano)
+        ret = max(pdf_H / (4.0 * V_dot_H), EPSILON); // Epsilon por seguridad
+    }
+    return (ret);
 }
 
 // COOK TORRANCE
@@ -352,44 +440,134 @@ vec3 cooktorrance_SAMPLE(s_hit hit, float seed)
 {
     // Lanzo rayos al azar uniformemente en el hemisferio superior
     vec3 ray;
-    ray = normalize(random_bounce(hit, seed));
-    if (dot(hit.normal, ray) < 0) ray = -ray;
+    if (int(u_importance_sampling) == 0)
+    {
+        ray = normalize(random_bounce(hit, seed));
+        if (dot(hit.normal, ray) < 0) ray = -ray;
+    }
+    else if (int(u_importance_sampling) == 1)
+    {
+        s_material mat = u_shapes[hit.hit].mat;
+        // 1. Generate 3 random numbers [0.0, 1.0]
+        // (Assuming you have a function that hashes your seed into multiple randoms)
+        vec3 xi = random_vector(seed); 
+        // Calculate the probability of picking the specular lobe
+        float prob_specular = mat.ks / max(mat.kd + mat.ks, EPSILON);
+        // Choose a helper vector that isn't collinear with the normal
+        vec3 up = abs(hit.normal.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+        vec3 tangent = normalize(cross(up, hit.normal));
+        vec3 bitangent = cross(hit.normal, tangent);
+        mat3 tbn = mat3(tangent, bitangent, hit.normal);
+        vec3 local_dir;
+        if (xi.z < prob_specular) 
+        {
+            // --- SAMPLE SPECULAR (Beckmann NDF) ---
+            float m = max(mat.m, EPSILON);
+            // Beckmann importance sampling math
+            float tan2Theta = -(m * m) * log(1.0 - xi.x);
+            float cosTheta = 1.0 / sqrt(1.0 + tan2Theta);
+            float sinTheta = sqrt(max(0.0, 1.0 - cosTheta * cosTheta));
+            float phi = 2.0 * PI * xi.y;
+            // Generate the microfacet normal (half-vector) in local space
+            vec3 local_h = vec3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
+            // Transform half-vector to world space
+            vec3 h = normalize(tbn * local_h);
+            // Reflect the incoming view ray around the microfacet normal
+            // hit.ray.dir is pointing towards the surface, so standard reflect() works perfectly
+            ray = reflect(hit.ray.dir, h);
+            // Ensure it doesn't point inside the surface
+            if (dot(hit.normal, ray) < 0.0) ray = -ray;
+        } 
+        else 
+        {
+            // --- SAMPLE DIFFUSE (Cosine-weighted Hemisphere) ---
+            float r = sqrt(xi.x);
+            float theta = 2.0 * PI * xi.y;
+            float x = r * cos(theta);
+            float y = r * sin(theta);
+            float z = sqrt(max(0.0, 1.0 - x*x - y*y));
+            local_dir = vec3(x, y, z);
+            // Transform straight to world space
+            ray = normalize(tbn * local_dir);
+        }
+    }
     return (ray);
 }
 vec4 cooktorrance_BRDF(s_hit hit, vec3 new_dir)
 {
-    s_material mat = u_shapes[hit.hit].mat;
-    vec4 albedo = mat.color;
-    float m = mat.m;      // RUGOSIDAD                -   DEPDENDE DEL MATERIAL
-    float eta = mat.eta;     // REF. INDEX               -   DEPDENDE DEL MATERIAL
-    float kd = mat.kd;    // COMPONENTE DE DIFUSA     -   DEPDENDE DEL MATERIAL
-    float ks = mat.ks;    // COMPONENTE DE ESPECULAR  -   DEPDENDE DEL MATERIAL
-
     vec3 omega_i = normalize(new_dir);
     vec3 omega_r = normalize(-hit.ray.dir);
     vec3 n = hit.normal;
-    vec3 h = normalize(omega_i + omega_r);
-    float dotNH = max(dot(n, h), 0.0001);
-    float dotNR = max(dot(n, omega_r), 0.0001);
-    float dotNI = max(dot(n, omega_i), 0.0001);
-    float dotRH = max(dot(omega_r, h), 0.0001);
-    float alpha = acos(clamp(dotNH, 0.0001, 0.9999));
+    if (dot(n, omega_i) <= 0.0 || dot(n, omega_r) <= 0.0)
+        return vec4(0.0, 0.0, 0.0, 1.0);
+
+    s_material mat = u_shapes[hit.hit].mat;
+    vec4 albedo = mat.color;
+    float m = max(mat.m, EPSILON);        // RUGOSIDAD                -   DEPDENDE DEL MATERIAL
+    float eta = max(mat.eta, 1.0001);   // REF. INDEX               -   DEPDENDE DEL MATERIAL
+    float kd = mat.kd;                      // COMPONENTE DE DIFUSA     -   DEPDENDE DEL MATERIAL
+    float ks = mat.ks;                      // COMPONENTE DE ESPECULAR  -   DEPDENDE DEL MATERIAL
+
+    vec3 h_vec = omega_i + omega_r;
+    vec3 h = length(h_vec) > EPSILON ? normalize(h_vec) : n;
+    float dotNH = max(dot(n, h), EPSILON);
+    float dotNR = max(dot(n, omega_r), EPSILON);
+    float dotNI = max(dot(n, omega_i), EPSILON);
+    float dotRH = max(dot(omega_r, h), EPSILON);
+    float alpha = acos(clamp(dotNH, EPSILON, 0.9999));
     float c = dotRH;
-    float g = sqrt(pow(eta, 2) + pow(c, 2) - 1);
+    float g = sqrt(max(pow(eta, 2.0) + pow(c, 2.0) - 1.0, 0.0));
 
-    float D = 1.0/(pow(m, 2)*pow(dotNH, 4)) * exp(-pow(tan(alpha) / m, 2));
-    float G = min(min(1, (2*dotNH*dotNR/dotRH)), (2*dotNH*dotNI/dotRH));
-    float F = (pow(g-c,2)/(2*pow(g+c,2))) * (1 + pow(c*(g+c)-1, 2)/pow(c*(g-c)+1, 2));
+    float D = 1.0/(PI*pow(m, 2.0)*pow(dotNH, 4.0)) * exp(-pow(tan(alpha) / m, 2.0));
+    float G = min(min(1.0, (2.0*dotNH*dotNR/dotRH)), (2.0*dotNH*dotNI/dotRH));
+    float F = (pow(g-c,2.0)/(2.0*pow(g+c,2.0))) * (1.0 + pow(c*(g+c)-1.0, 2.0)/pow(c*(g-c)+1.0, 2.0));
 
+    vec4 k_S = vec4(F);
+    vec4 k_D = vec4(1.0) - k_S;
     float diffuse = kd/PI;
-    float specular = ks * (F*D*G)/(PI*dotNR*dotNI);
+    float specular = ks * (D*G)/(4.0*dotNR*dotNI);
 
-    return (albedo*(diffuse + specular));
+    return (albedo*(k_D*diffuse + k_S*specular));
 }
-float cooktorrance_PDF(s_hit hit)
+float cooktorrance_PDF(s_hit hit, vec3 new_dir)
 {
+    float ret;
     // PDF = 1.0 / (2*PI)
-    return 1.0 / (2.0*PI);
+    if (int(u_importance_sampling) == 0)
+    {
+        ret = 1.0 / (2.0*PI);
+    }
+    else if (int(u_importance_sampling) == 1)
+    {
+        vec3 n = hit.normal;
+        vec3 omega_i = normalize(new_dir);
+        vec3 omega_r = normalize(-hit.ray.dir);
+        // If the ray is below the hemisphere, PDF is 0
+        if (dot(n, omega_i) <= 0.0 || dot(n, omega_r) <= 0.0)
+            return 0.0;
+        s_material mat = u_shapes[hit.hit].mat;
+        float m = max(mat.m, EPSILON);
+        // Probabilities used in the sample selection
+        float prob_specular = mat.ks / max(mat.kd + mat.ks, EPSILON);
+        float prob_diffuse  = 1.0 - prob_specular;
+        // 1. Diffuse PDF (Cosine-weighted)
+        float dotNI = max(dot(n, omega_i), EPSILON);
+        float pdf_diffuse = dotNI / PI;
+        // 2. Specular PDF (Beckmann)
+        vec3 h = normalize(omega_i + omega_r);
+        float dotNH = max(dot(n, h), EPSILON);
+        float dotRH = max(dot(omega_r, h), EPSILON);
+        float alpha = acos(clamp(dotNH, EPSILON, 0.9999));
+        // Standard Beckmann D (Added the PI denominator for energy conservation)
+        float D = 1.0 / (PI * pow(m, 2.0) * pow(dotNH, 4.0)) * exp(-pow(tan(alpha) / m, 2.0));
+        // The probability of generating the half-vector h
+        float pdf_h = D * dotNH; 
+        // Jacobian transformation from half-vector space to outgoing ray space
+        float pdf_specular = pdf_h / (4.0 * dotRH);
+        // 3. Total PDF is the weighted sum of both routing paths
+        ret = (prob_diffuse * pdf_diffuse) + (prob_specular * pdf_specular);
+    }
+    return (ret);
 }
 
 vec4 ray_trace(s_ray ray)
@@ -401,10 +579,13 @@ vec4 ray_trace(s_ray ray)
 
     // float a = 0.5 * (ray.dir.y + 1.0);
     // vec4 ambient = (1.0 - a) * vec4(1.0) + a * vec4(0.5, 0.7, 1.0, 1.0);
-    vec4 ambient = AMBIENT_LIGHT_COLOR;
+    vec4 ambient = u_ambient_light_color;
 
     for (int b = 0; b < RAY_MAX_BOUNCES; b++)
     {
+        // // Russian roulette to kill some rays randomly
+        // if (random(seed + b*42.7235 + 7.345) > 0.8)
+        //     break;
         hit = intersect_scene(ray, RAY_NO_HIT);
 
         if (hit.hit == RAY_NO_HIT)
@@ -428,7 +609,7 @@ vec4 ray_trace(s_ray ray)
         {
             new_dir = lambert_SAMPLE(hit, seed + b);
             brdf_val = lambert_BRDF(hit, new_dir);
-            pdf_val = lambert_PDF(hit);
+            pdf_val = lambert_PDF(hit, new_dir);
         }
         if (int(u_shapes[hit.hit].mat.p0) == SPECULAR)
         {
@@ -441,24 +622,24 @@ vec4 ray_trace(s_ray ray)
         {
             new_dir = blinnphong_SAMPLE(hit, seed + b);
             brdf_val = blinnphong_BRDF(hit, new_dir);
-            pdf_val = blinnphong_PDF(hit);
+            pdf_val = blinnphong_PDF(hit, new_dir);
         }
         // COOK TORRANCE
         else if (int(u_shapes[hit.hit].mat.p0) == COOK_TORRANCE)
         {
             new_dir = cooktorrance_SAMPLE(hit, seed + b);
             brdf_val = cooktorrance_BRDF(hit, new_dir);
-            pdf_val = cooktorrance_PDF(hit);
+            pdf_val = cooktorrance_PDF(hit, new_dir);
         }
 
 
         // COMPUTE COLOR ABSORTION
         cos_theta = max(dot(hit.normal, new_dir), 0.0);
         ray.dir = new_dir;
-        ray.pos = hit.pos + hit.normal * 0.001;
+        ray.pos = hit.pos + hit.normal * EPSILON;
 
         // LEY UNIVERSAL DE MONTECARLO: m *= (BRDF * cos) / PDF
-        if (pdf_val > 0.001) // Evitar dividir por cero si el rayo sale mal
+        if (pdf_val > EPSILON) // Evitar dividir por cero si el rayo sale mal
             m *= (brdf_val * cos_theta) / pdf_val; 
         else
             break;
@@ -488,13 +669,30 @@ void main()
     ray.dir = normalize(screen - cam.pos);
     color = ray_trace(ray);
 
-/* COMPUTE COLOR */
-    vec4 prev_color = imageLoad(u_img_accumulated, texel_coord);
+    /* COMPUTE COLOR */
+    vec4 prev_mean = imageLoad(u_mean, texel_coord);
+    vec4 prev_sum2 = imageLoad(u_sum2, texel_coord);
 
+    vec4 current_mean = color;
+    vec4 current_sum2 = color*color;
+
+    vec4 new_mean = current_mean;
+    vec4 new_sum2 = current_sum2;
     if (int(u_frame_cnt) > 1)
-        color = mix(prev_color, color, 1.0/u_frame_cnt);
+    {
+        new_mean = mix(prev_mean, current_mean, 1.0/u_frame_cnt);
+        new_sum2 = mix(prev_sum2, current_sum2, 1.0/u_frame_cnt);
+    }
+    imageStore(u_mean, texel_coord, new_mean);
+    imageStore(u_sum2, texel_coord, new_sum2);
 
-    imageStore(u_img_accumulated, texel_coord, color);
-    color.rgb = color.rgb * (u_S * u_t) / (u_N * u_N * u_K);
-    imageStore(u_img_display, texel_coord, color);
+    // DISPLAY SCENE
+    float hdr_scale = (u_S * u_t) / (u_N * u_N * u_K);
+    // new_mean.rgb = new_mean.rgb * hdr_scale;
+    imageStore(u_img_display, texel_coord, new_mean);
+    // DISPLAY VARIANCE
+    vec4 tmp = max(vec4(0.0), new_sum2 - (new_mean*new_mean));
+    float variance = (tmp.x + tmp.y + tmp.z)/(3.0 * u_frame_cnt);
+    // variance *= hdr_scale;
+    imageStore(u_variance, texel_coord, vec4(variance));
 }

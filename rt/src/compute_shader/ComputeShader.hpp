@@ -15,11 +15,14 @@ namespace rt {
     {
     public:
         static constexpr int DISPLAY_TEXTURE = 0;
-        static constexpr int ACCUMULATED_TEXTURE = 1;
+        static constexpr int MEAN_TEXTURE = 1;
+        static constexpr int SUM2_TEXTURE = 2;
+        static constexpr int VARIANCE_TEXTURE = 3;
+        static constexpr int MAX_TEXTURES = 4;
     private:
 
         unsigned int _id;
-        unsigned int _tex[2];
+        unsigned int _tex[MAX_TEXTURES];
         unsigned int _width, _height;
 
     public:
@@ -27,13 +30,16 @@ namespace rt {
 
         void Bind();
         unsigned int GetDisplayTextureId() const;
-        unsigned int GetAccumulatedTextureId() const;
+        unsigned int GetVarianceTextureId() const;
+        unsigned int GetMeanTextureId() const;
+        unsigned int GetSum2TextureId() const;
         void WaitFinished() const;
         unsigned int GetWidth() const;
         unsigned int GetHeight() const;
 
         void SetUniform(const std::string& name, const glm::mat3& v) const;
         void SetUniform(const std::string& name, const glm::vec3& v) const;
+        void SetUniform(const std::string& name, const glm::vec4& v) const;
         void SetUniform(const std::string& name, float v) const;
         void SetUniform(const std::string& name, int v) const;
     };

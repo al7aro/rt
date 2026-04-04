@@ -49,9 +49,14 @@ namespace rt {
     {
     private:
         std::vector<Shape> _shapes;
+        glm::vec4 _ambient_color;
     public:
-        Scene() {}
+        Scene()
+            : _ambient_color(0.0) {}
         ~Scene() {}
+
+        void SetAmbientColor(const glm::vec4& color) { _ambient_color = color; }
+        const glm::vec4& GetAmbientColor() { return (_ambient_color); }
 
         /* COMMON FUNCTIONS */
         void SetPosition(unsigned int id, const glm::vec3& pos) { _shapes[id].pos = pos; }
@@ -73,8 +78,8 @@ namespace rt {
         void SetKs(unsigned int id, float ks) { _shapes[id].mat.ks = ks; }
         void SetKs(std::vector<unsigned int> ids,  float ks) { for (unsigned int id : ids) _shapes[id].mat.ks = ks; }
         
-        void SetRoughness(unsigned int id, float m) { _shapes[id].mat.m = m; }
-        void SetRoughness(std::vector<unsigned int> ids, float m) { for (unsigned int id : ids) _shapes[id].mat.m = m; }
+        void SetParamM(unsigned int id, float m) { _shapes[id].mat.m = m; }
+        void SetParamM(std::vector<unsigned int> ids, float m) { for (unsigned int id : ids) _shapes[id].mat.m = m; }
         
         void SetRefracti(unsigned int id, float eta) { _shapes[id].mat.eta = eta; }
         void SetRefracti(std::vector<unsigned int> ids, float eta) { for (unsigned int id : ids) _shapes[id].mat.eta = eta; }
@@ -142,11 +147,11 @@ namespace rt {
         }
 
         // THE BOX WILL BE AN ARRAY OF QUADS
-        std::vector<unsigned int> CreateBox(const glm::vec3& center, float x, float y, float z, glm::vec3 rot = glm::vec3(0.0))
+        std::vector<unsigned int> CreateBox(const glm::vec3& center, glm::vec3 scale = glm::vec3(1.0), glm::vec3 rot = glm::vec3(0.0))
         {
-            x /= 2.0;
-            y /= 2.0;
-            z /= 2.0;
+            float x = scale.x / 2.0;
+            float y = scale.y / 2.0;
+            float z = scale.z / 2.0;
             glm::vec3 right = glm::vec3(1, 0, 0);
             glm::vec3 front = glm::vec3(0, 0, 1);
             glm::vec3 up = glm::vec3(0, 1, 0);

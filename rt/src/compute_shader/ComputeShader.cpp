@@ -17,16 +17,17 @@ namespace rt {
         glDeleteShader(c_sh);
 
         /* INIT TEXTURE FOR WRITTING */
-        glCreateTextures(GL_TEXTURE_2D, 2, _tex);
-        for (int i = 0; i < 2; i++)
+        glCreateTextures(GL_TEXTURE_2D, MAX_TEXTURES, _tex);
+        for (int i = 0; i < MAX_TEXTURES; i++)
         {
             glActiveTexture(GL_TEXTURE0 + i);
             glBindTextureUnit(i, _tex[i]);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, _width, _height);
+            glTextureParameteri(_tex[i], GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTextureParameteri(_tex[i], GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTextureParameteri(_tex[i], GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTextureParameteri(_tex[i], GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+            glTextureStorage2D(_tex[i], 1, GL_RGBA32F, _width, _height);
             glBindImageTexture(i, _tex[i], 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
         }
     }
@@ -50,9 +51,19 @@ namespace rt {
         return (_tex[DISPLAY_TEXTURE]);
     }
 
-    unsigned int ComputeShader::GetAccumulatedTextureId() const
+    unsigned int ComputeShader::GetVarianceTextureId() const
     {
-        return (_tex[ACCUMULATED_TEXTURE]);
+        return (_tex[VARIANCE_TEXTURE]);
+    }
+
+    unsigned int ComputeShader::GetMeanTextureId() const
+    {
+        return (_tex[MEAN_TEXTURE]);
+    }
+
+    unsigned int ComputeShader::GetSum2TextureId() const
+    {
+        return (_tex[SUM2_TEXTURE]);
     }
 
     void ComputeShader::WaitFinished() const
@@ -70,6 +81,11 @@ namespace rt {
     {
         unsigned int loc = glGetUniformLocation(_id, name.c_str());
         glProgramUniform3fv(_id, loc, 1, glm::value_ptr(v));
+    }
+    void ComputeShader::SetUniform(const std::string& name, const glm::vec4& v) const
+    {
+        unsigned int loc = glGetUniformLocation(_id, name.c_str());
+        glProgramUniform4fv(_id, loc, 1, glm::value_ptr(v));
     }
     void ComputeShader::SetUniform(const std::string& name, float v) const
     {
