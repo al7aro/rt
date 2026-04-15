@@ -330,12 +330,11 @@ vec3 specular_SAMPLE(s_hit hit, float seed)
 vec4 specular_BRDF(s_hit hit, vec3 new_dir)
 {
     vec3 normal = hit.normal;
-    vec3 dir = new_dir;
     vec4 albedo = u_shapes[hit.hit].mat.color;
     float cos_theta = max(dot(hit.normal, new_dir), 0.0);
     if (cos_theta <= 0.0) 
         return (vec4(0.0));
-    return (albedo / (dot(normal, dir)));
+    return (albedo / (dot(normal, new_dir)));
 }
 float specular_PDF(s_hit hit)
 {
@@ -521,8 +520,11 @@ vec4 cooktorrance_BRDF(s_hit hit, vec3 new_dir)
     vec4 k_D = vec4(1.0) - k_S;
     float diffuse = kd/PI;
     float specular = ks * (D*G)/(4.0*dotNR*dotNI);
-
     return (albedo*(k_D*diffuse + k_S*specular));
+
+    // float diffuse = kd/PI;
+    // float specular = ks * (D*G*F)/(4.0*dotNR*dotNI);
+    // return (albedo*(kd*diffuse + ks*specular));
 }
 float cooktorrance_PDF(s_hit hit, vec3 new_dir)
 {

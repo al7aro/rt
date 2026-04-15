@@ -24,6 +24,7 @@ bool update_camera(rt::Window& win, rt::Camera& cam, rt::KeyHandler& wasd, rt::M
 void setup_scene0(rt::Scene& scene);
 void setup_scene1(rt::Scene& scene);
 void setup_scene2(rt::Scene& scene);
+void setup_scene3(rt::Scene& scene);
 void cornellbox_scene(rt::Scene& scene);
 void export_image(unsigned int id, int w, int h, const std::string& path);
 std::string image_filename(float t, float exp, float iso, float k, float n);
@@ -51,8 +52,8 @@ int main(void)
     int export_end = 0;
     char file_name[512] = "filename\0";
     bool exporting = true;
-    bool importance_sampling = true;
     bool mean_color_export = true;
+    bool importance_sampling = false;
 
     rt::Canvas canvas;
     rt::ComputeShader c_sh(ASSETS_DIRECTORY"/shaders/rt/basic.c.glsl", WIDTH, HEIGHT);
@@ -64,16 +65,18 @@ int main(void)
     bool updated_scene = 0;
     rt::Timer calculation_timer;
 
-    float EXPOSURE_T = 2.;
+    float EXPOSURE_T = 2.0;
     float ISO = 200;
     float APERTURE = 3.0;
     float SENSOR_K = 12.5;
+    float HDR_CONSTANT = 4.3;
 
     rt::Scene scene;
     // cornellbox_scene(scene);
     // setup_scene0(scene);
     // setup_scene1(scene);
-    setup_scene2(scene);
+    // setup_scene2(scene);
+    setup_scene3(scene);
 
     /* LOAD SCENE TO GPU */
     unsigned int ubo[1];
@@ -115,10 +118,11 @@ int main(void)
         ImGui::NewFrame();
 /* ********************************** */
         ImGui::Begin("Camera Details");
-        ImGui::SliderFloat("Exposure time", &EXPOSURE_T, 0.0, 10.0);
-        ImGui::SliderFloat("ISO", &ISO, 0.0, 1000.0);
-        ImGui::SliderFloat("Aperture", &APERTURE, 0.0, 50.0);
-        ImGui::SliderFloat("Sensor Constant", &SENSOR_K, 0.0, 100.0);
+        ImGui::SliderFloat("HDR Constant", &HDR_CONSTANT, 0.0, 10.0);
+        // ImGui::SliderFloat("Exposure time", &EXPOSURE_T, 0.0, 10.0);
+        // ImGui::SliderFloat("ISO", &ISO, 0.0, 1000.0);
+        // ImGui::SliderFloat("Aperture", &APERTURE, 0.0, 50.0);
+        // ImGui::SliderFloat("Sensor Constant", &SENSOR_K, 0.0, 100.0);
         ImGui::Checkbox("Input", &enable_input);
         ImGui::SameLine();
         ImGui::Checkbox("Importance Sampling", &importance_sampling);
@@ -163,7 +167,7 @@ int main(void)
         ImGui::SameLine();
         if (ImGui::Button("Render"))
             export_image(display_texture, c_sh.GetWidth(), c_sh.GetHeight(),
-                RT_DIRECTORY"/renders/" + std::string(file_name)  + "_" + image_filename(calculation_timer.EllapsedSeconds(), EXPOSURE_T, ISO, APERTURE, SENSOR_K));
+                RT_DIRECTORY"/renders/" + std::string(file_name)  + "_t" + std::to_string(win.GetFrameCount()));
         ImGui::SameLine();
         updated_scene |= ImGui::Button("Reload");
 
@@ -185,10 +189,11 @@ int main(void)
         c_sh.SetUniform("u_importance_sampling", float(importance_sampling));
 
         c_sh.WaitFinished();
-        canvas.SetUniform("u_t", EXPOSURE_T);
-        canvas.SetUniform("u_S", ISO);
-        canvas.SetUniform("u_K", SENSOR_K);
-        canvas.SetUniform("u_N", APERTURE);
+        // canvas.SetUniform("u_t", EXPOSURE_T);
+        // canvas.SetUniform("u_S", ISO);
+        // canvas.SetUniform("u_K", SENSOR_K);
+        // canvas.SetUniform("u_N", APERTURE);
+        canvas.SetUniform("u_hdr_cte", HDR_CONSTANT);
         canvas.Render(display_texture, rt::ComputeShader::DISPLAY_TEXTURE);
 
 /* ********** IMGUI RENDER ********** */
@@ -213,7 +218,7 @@ int main(void)
 std::string image_filename(float t, float exp, float iso, float k, float n)
 {
     std::string ret;
-    ret += "t" + std::to_string((int)(t * 100));
+    ret += "t" + std::to_string((int)(t));
     ret += "_exp" + std::to_string((int)(exp * 100));
     ret += "_iso" + std::to_string((int)(iso * 100));
     ret += "_k" + std::to_string((int)(k * 100));
@@ -326,22 +331,39 @@ void cornellbox_scene(rt::Scene& scene)
 
 void setup_scene0(rt::Scene& scene)
 {
+    // auto b0 = scene.CreateBox(glm::vec3(-0.6, -1.0, -0.6), glm::vec3(1.0, 2.0, 1.0), glm::vec3(3.14/6.0, 0.0, 0.0));
+    // scene.SetColor(b0, glm::vec4(0.6, 0.6, 0.6, 1.0));
+    // scene.SetModel(b0, rt::Material::BRDFModel::BLINN_PHONG);
+    // scene.SetParamM(b0, 1000);
+    // scene.SetKd(b0, 0.1);
+    // scene.SetKs(b0, 0.9);
+    // auto b1 = scene.CreateBox(glm::vec3(0.6, -1.5, 0.6), glm::vec3(1.0), glm::vec3(-3.14/6.0, 0.0, 0.0));
+    // scene.SetColor(b1, glm::vec4(0.6, 0.6, 0.6, 1.0));
+    // scene.SetModel(b1, rt::Material::BRDFModel::BLINN_PHONG);
+    // scene.SetParamM(b0, 500);
+    // scene.SetKd(b0, 0.6);
+    // scene.SetKs(b0, 0.4);
+
     auto b0 = scene.CreateBox(glm::vec3(-0.6, -1.0, -0.6), glm::vec3(1.0, 2.0, 1.0), glm::vec3(3.14/6.0, 0.0, 0.0));
-    scene.SetColor(b0, glm::vec4(0.6, 0.6, 0.6, 1.0));
-    scene.SetModel(b0, rt::Material::BRDFModel::SPECULAR);
-    scene.SetParamM(b0, 500);
-    scene.SetRefracti(b0, 15);
-    scene.SetKd(b0, 0.1);
-    scene.SetKs(b0, 0.9);
+    scene.SetColor(b0, glm::vec4(0.99));
+    scene.SetModel(b0, rt::Material::BRDFModel::COOK_TORRANCE);
+    scene.SetRefracti(b0, 13);
+    scene.SetParamM(b0, 0.075);
+    scene.SetKd(b0, 0.2);
+    scene.SetKs(b0, 0.8);
     auto b1 = scene.CreateBox(glm::vec3(0.6, -1.5, 0.6), glm::vec3(1.0), glm::vec3(-3.14/6.0, 0.0, 0.0));
-    scene.SetColor(b1, glm::vec4(0.6, 0.6, 0.6, 1.0));
-    scene.SetModel(b1, rt::Material::BRDFModel::LAMBERTIAN);
+    scene.SetColor(b1, glm::vec4(0.99));
+    scene.SetModel(b1, rt::Material::BRDFModel::COOK_TORRANCE);
+    scene.SetParamM(b1, 2);
+    scene.SetRefracti(b1, 1);
+    scene.SetKd(b1, 0.8);
+    scene.SetKs(b1, 0.2);
 }
 
 void setup_scene1(rt::Scene& scene)
 {
     auto b0 = scene.CreateSphere(glm::vec3(-0.6, -1.0, -0.6), 1.0);
-    scene.SetColor(b0, glm::vec4(0.6, 0.6, 0.6, 1.0));
+    scene.SetColor(b0, glm::vec4(0.9, 0.9, 0.9, 1.0));
     scene.SetModel(b0, rt::Material::BRDFModel::COOK_TORRANCE);
     scene.SetParamM(b0, 0.1);
     scene.SetRefracti(b0, 15);
@@ -362,6 +384,18 @@ void setup_scene2(rt::Scene& scene)
     scene.SetRefracti(b0, 15);
     scene.SetKd(b0, 0.01);
     scene.SetKs(b0, 0.99);
+}
+
+void setup_scene3(rt::Scene& scene)
+{
+    // LIGHT SOURCE
+    rt::Material::BRDFModel model = rt::Material::BRDFModel::COOK_TORRANCE;
+    float albedo = 0.9;
+    scene.SetAmbientColor(glm::vec4(1.0));
+    int sph = scene.CreateSphere(glm::vec3(0.0, 0.0, 0.0), 1.0);
+    scene.SetColor(sph, glm::vec4(albedo));
+    scene.SetModel(sph, model);
+    scene.SetParamM(sph, 0.1); scene.SetRefracti(sph, 15); scene.SetKd(sph, 0.01); scene.SetKs(sph, 0.99);
 }
 
 bool update_camera(rt::Window& win, rt::Camera& cam, rt::KeyHandler& wasd, rt::MouseHandler& mouse, float delta_time)
