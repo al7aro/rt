@@ -23,3 +23,5 @@ git clone %REPO_URL% %VENDOR_DIR%\stb
 @REM FETCH IMGUI
 set REPO_URL=git@github.com:al7aro/imgui.git
 git clone %REPO_URL% %VENDOR_DIR%\imgui
+
+pause

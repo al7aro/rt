@@ -25,7 +25,9 @@ void setup_scene0(rt::Scene& scene);
 void setup_scene1(rt::Scene& scene);
 void setup_scene2(rt::Scene& scene);
 void setup_scene3(rt::Scene& scene);
+void setup_scene4(rt::Scene& scene);
 void cornellbox_scene(rt::Scene& scene);
+void simple_cornellbox_scene(rt::Scene& scene);
 void export_image(unsigned int id, int w, int h, const std::string& path);
 std::string image_filename(float t, float exp, float iso, float k, float n);
 void export_data(const std::vector<std::pair<float, float> >& variance, const std::string& path);
@@ -34,8 +36,8 @@ float get_mean_color(unsigned int id, int w, int h, int radius);
 
 int main(void)
 {
-    int WIDTH = 900;
-    int HEIGHT = 900;
+    int WIDTH = 1000;
+    int HEIGHT = 1000;
 
     rt::Window win("rt", WIDTH, HEIGHT);
     auto wasd = std::make_shared<rt::KeyHandler>(std::vector<int>({ GLFW_KEY_U, GLFW_KEY_W, GLFW_KEY_A, GLFW_KEY_S, GLFW_KEY_D, GLFW_KEY_SPACE, GLFW_KEY_LEFT_SHIFT, GLFW_KEY_ENTER }));
@@ -52,8 +54,8 @@ int main(void)
     int export_end = 0;
     char file_name[512] = "filename\0";
     bool exporting = true;
-    bool mean_color_export = true;
-    bool importance_sampling = false;
+    bool mean_color_export = false;
+    bool importance_sampling = true;
 
     rt::Canvas canvas;
     rt::ComputeShader c_sh(ASSETS_DIRECTORY"/shaders/rt/basic.c.glsl", WIDTH, HEIGHT);
@@ -72,11 +74,12 @@ int main(void)
     float HDR_CONSTANT = 4.3;
 
     rt::Scene scene;
-    // cornellbox_scene(scene);
+    simple_cornellbox_scene(scene);
     // setup_scene0(scene);
+    setup_scene4(scene);
     // setup_scene1(scene);
     // setup_scene2(scene);
-    setup_scene3(scene);
+    // setup_scene3(scene);
 
     /* LOAD SCENE TO GPU */
     unsigned int ubo[1];
@@ -329,6 +332,52 @@ void cornellbox_scene(rt::Scene& scene)
     scene.SetColor(q_right, glm::vec4(0.15, 0.65, 0.15, 1.0));
 }
 
+void simple_cornellbox_scene(rt::Scene& scene)
+{
+    // LIGHT SOURCE
+    int q_light = scene.CreateSphere(glm::vec3(0.0, 1.5, 0.0), 0.15);
+    scene.SetColor(q_light, glm::vec4(10.0f*glm::vec3(1.0, 0.9, 0.4), 1.0));
+    scene.SetEmissive(q_light, 1.0);
+
+    int q_bot = scene.CreateQuad(
+        glm::vec3(2.0, -2.0, -2.0),
+        glm::vec3(-2.0, -2.0, -2.0),
+        glm::vec3(-2.0, -2.0, 2.0),
+        glm::vec3(2.0, -2.0, 2.0)
+    );
+    scene.SetColor(q_bot, glm::vec4(0.4, 0.4, 0.725, 1.0));
+
+    int q_top = scene.CreateQuad(
+        glm::vec3(2.0, 2.0, 2.0),
+        glm::vec3(-2.0, 2.0, 2.0),
+        glm::vec3(-2.0, 2.0, -2.0),
+        glm::vec3(2.0, 2.0, -2.0)
+    );
+    scene.SetColor(q_top, glm::vec4(0.725));
+
+    int q_back = scene.CreateQuad(
+        glm::vec3(-2.0, -2.0, -2.0),
+        glm::vec3(2.0, -2.0, -2.0),
+        glm::vec3(2.0, 2.0, -2.0),
+        glm::vec3(-2.0, 2.0, -2.0)
+    );
+    scene.SetColor(q_back, glm::vec4(0.725));
+    int q_left = scene.CreateQuad(
+        glm::vec3(-2.0, -2.0, -2.0),
+        glm::vec3(-2.0, 2.0, -2.0),
+        glm::vec3(-2.0, 2.0, 2.0),
+        glm::vec3(-2.0, -2.0, 2.0)
+    );
+    scene.SetColor(q_left, glm::vec4(0.75, 0.05, 0.05, 1.0));
+    int q_right = scene.CreateQuad(
+        glm::vec3(2.0, 2.0, -2.0),
+        glm::vec3(2.0, -2.0, -2.0),
+        glm::vec3(2.0, -2.0, 2.0),
+        glm::vec3(2.0, 2.0, 2.0)
+    );
+    scene.SetColor(q_right, glm::vec4(0.15, 0.65, 0.15, 1.0));
+}
+
 void setup_scene0(rt::Scene& scene)
 {
     // auto b0 = scene.CreateBox(glm::vec3(-0.6, -1.0, -0.6), glm::vec3(1.0, 2.0, 1.0), glm::vec3(3.14/6.0, 0.0, 0.0));
@@ -396,6 +445,24 @@ void setup_scene3(rt::Scene& scene)
     scene.SetColor(sph, glm::vec4(albedo));
     scene.SetModel(sph, model);
     scene.SetParamM(sph, 0.1); scene.SetRefracti(sph, 15); scene.SetKd(sph, 0.01); scene.SetKs(sph, 0.99);
+}
+
+void setup_scene4(rt::Scene& scene)
+{
+    auto b0 = scene.CreateBox(glm::vec3(-0.6, -1.0, -0.6), glm::vec3(1.0, 2.0, 1.0), glm::vec3(3.14/6.0, 0.0, 0.0));
+    scene.SetColor(b0, glm::vec4(0.99));
+    scene.SetModel(b0, rt::Material::BRDFModel::SPECULAR);
+    scene.SetRefracti(b0, 13);
+    scene.SetParamM(b0, 0.075);
+    scene.SetKd(b0, 0.2);
+    scene.SetKs(b0, 0.8);
+    auto b1 = scene.CreateSphere(glm::vec3(0.6, -1.5, 0.6), 0.5);
+    scene.SetColor(b1, glm::vec4(0.99, 0.3, 0.57, 1.0));
+    scene.SetModel(b1, rt::Material::BRDFModel::COOK_TORRANCE);
+    scene.SetParamM(b1, 0.1);
+    scene.SetRefracti(b1, 20);
+    scene.SetKd(b1, 0.1);
+    scene.SetKs(b1, 0.9);
 }
 
 bool update_camera(rt::Window& win, rt::Camera& cam, rt::KeyHandler& wasd, rt::MouseHandler& mouse, float delta_time)
